@@ -46,19 +46,6 @@ class AppHealthConfig internal constructor() {
     var lifecycleTracking: Boolean = true
 
     /**
-     * Enable automatic session tracking.
-     *
-     * When enabled, AppHealth adds a `session.id` attribute to all spans and logs.
-     * Sessions rotate on cold start or after 30 minutes in background.
-     *
-     * This helps correlate telemetry within a user session without requiring
-     * manual instrumentation.
-     *
-     * Default: true
-     */
-    var sessionTracking: Boolean = true
-
-    /**
      * Enable startup timing (TTID/TTFD measurement).
      * Default: true
      */

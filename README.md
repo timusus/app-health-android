@@ -51,7 +51,7 @@ fun createOpenTelemetrySdk(endpoint: String, serviceName: String): OpenTelemetry
 | **ANRs** | Main thread blocked > 5 seconds |
 | **Startup** | Time to Initial/Full Display (TTID/TTFD) |
 | **Jank** | Slow and frozen frames via FrameMetrics |
-| **Lifecycle** | Foreground/background transitions, session duration |
+| **Lifecycle** | Foreground/background transitions |
 
 ## Configuration
 
@@ -64,7 +64,6 @@ AppHealth.init(context, openTelemetry) {
     anrDetection = true           // ANR watchdog (default: true)
     ndkCrashHandling = true       // Native crashes (default: true)
     lifecycleTracking = true      // Foreground/background (default: true)
-    sessionTracking = true        // Auto session.id on spans/logs (default: true)
     startupTracking = true        // TTID/TTFD (default: true)
     jankTracking = true           // Frame metrics (default: true)
 }
@@ -125,7 +124,7 @@ AppHealth.reportFullyDrawn()
 
 ## Custom Instrumentation
 
-AppHealth automatically adds `session.id` to all spans and logs created through the OpenTelemetry SDK you provide. For custom instrumentation, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/languages/java/).
+For custom spans and logs, use the OpenTelemetry SDK you provided to AppHealth. See the [OpenTelemetry documentation](https://opentelemetry.io/docs/languages/java/).
 
 ## Initialization Control
 
@@ -153,7 +152,6 @@ The SDK collects only technical data required for crash reporting and performanc
 
 | Attribute | Purpose | Persistence |
 |-----------|---------|-------------|
-| `session.id` | Correlate events within a session | Rotates after 30 min inactivity |
 | `device.installation.id` | Correlate telemetry from same device | Persists until app uninstall |
 | `device.model.name` | Device context for debugging | N/A |
 | `device.manufacturer` | Device context for debugging | N/A |

@@ -51,11 +51,6 @@ import java.util.concurrent.TimeUnit
  * }
  * ```
  *
- * ## Session Management
- *
- * AppHealth automatically adds a `session.id` attribute to all spans and logs.
- * Sessions rotate on cold start or when the app returns to foreground after 30 minutes
- * in the background.
  */
 @OptIn(
     kotlinx.coroutines.DelicateCoroutinesApi::class,
@@ -131,21 +126,9 @@ object AppHealth {
                 sessionManager = newSessionManager
 
                 // Get tracer/logger/meter from app-provided OpenTelemetry
-                val baseTracer = openTelemetry.getTracer(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION)
-                val baseLogger = openTelemetry.logsBridge.loggerBuilder(INSTRUMENTATION_NAME).build()
+                val tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION)
+                val logger = openTelemetry.logsBridge.loggerBuilder(INSTRUMENTATION_NAME).build()
                 val meter = openTelemetry.getMeter(INSTRUMENTATION_NAME)
-
-                // Optionally wrap with session-aware decorators to add session.id
-                val tracer = if (userConfig.sessionTracking) {
-                    SessionAwareTracer(baseTracer) { newSessionManager.sessionId }
-                } else {
-                    baseTracer
-                }
-                val logger = if (userConfig.sessionTracking) {
-                    SessionAwareLogger(baseLogger) { newSessionManager.sessionId }
-                } else {
-                    baseLogger
-                }
 
                 _tracer = tracer
                 _logger = logger
