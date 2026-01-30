@@ -131,22 +131,30 @@ object AppHealth {
                 sessionManager = newSessionManager
 
                 // Get tracer/logger/meter from app-provided OpenTelemetry
-                // Wrap with session-aware decorators to automatically add session.id
                 val baseTracer = openTelemetry.getTracer(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION)
                 val baseLogger = openTelemetry.logsBridge.loggerBuilder(INSTRUMENTATION_NAME).build()
                 val meter = openTelemetry.getMeter(INSTRUMENTATION_NAME)
 
-                val sessionAwareTracer = SessionAwareTracer(baseTracer) { newSessionManager.sessionId }
-                val sessionAwareLogger = SessionAwareLogger(baseLogger) { newSessionManager.sessionId }
+                // Optionally wrap with session-aware decorators to add session.id
+                val tracer = if (userConfig.sessionTracking) {
+                    SessionAwareTracer(baseTracer) { newSessionManager.sessionId }
+                } else {
+                    baseTracer
+                }
+                val logger = if (userConfig.sessionTracking) {
+                    SessionAwareLogger(baseLogger) { newSessionManager.sessionId }
+                } else {
+                    baseLogger
+                }
 
-                _tracer = sessionAwareTracer
-                _logger = sessionAwareLogger
+                _tracer = tracer
+                _logger = logger
                 _meter = meter
 
                 initializeCollectors(
                     appContext as Application,
-                    sessionAwareTracer,
-                    sessionAwareLogger,
+                    tracer,
+                    logger,
                     meter,
                     openTelemetry,
                     newSessionManager,

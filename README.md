@@ -64,6 +64,7 @@ AppHealth.init(context, openTelemetry) {
     anrDetection = true           // ANR watchdog (default: true)
     ndkCrashHandling = true       // Native crashes (default: true)
     lifecycleTracking = true      // Foreground/background (default: true)
+    sessionTracking = true        // Auto session.id on spans/logs (default: true)
     startupTracking = true        // TTID/TTFD (default: true)
     jankTracking = true           // Frame metrics (default: true)
 }

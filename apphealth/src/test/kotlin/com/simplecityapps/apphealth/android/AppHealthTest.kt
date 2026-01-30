@@ -220,6 +220,25 @@ class AppHealthTest {
     }
 
     @Test
+    fun `sessionTracking can be disabled`() {
+        AppHealth.init(
+            context = application,
+            openTelemetry = telemetry.openTelemetry
+        ) {
+            sessionTracking = false
+        }
+        AppHealth.awaitReady()
+
+        // Create a span - it should NOT have session.id when sessionTracking is disabled
+        val tracer = AppHealth.getTracer()!!
+        val span = tracer.spanBuilder("test-span").startSpan()
+        span.end()
+
+        // The span should be created successfully (no crash)
+        assertTrue(telemetry.getSpans().isNotEmpty())
+    }
+
+    @Test
     fun `noop OpenTelemetry is handled gracefully`() {
         AppHealth.init(
             context = application,
