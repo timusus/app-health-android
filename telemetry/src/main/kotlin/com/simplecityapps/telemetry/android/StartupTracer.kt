@@ -58,16 +58,11 @@ internal class StartupTracer(
     override fun onActivityDestroyed(activity: Activity) {}
 
     companion object {
-        private fun getProcessStartElapsedRealtime(): Long {
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        fun getProcessStartElapsedRealtime(): Long =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 Process.getStartElapsedRealtime()
             } else {
                 SystemClock.elapsedRealtime()
             }
-        }
-
-        fun create(tracer: Tracer): StartupTracer {
-            return StartupTracer(tracer)
-        }
     }
 }

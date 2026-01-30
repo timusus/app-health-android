@@ -40,16 +40,9 @@ internal object RouteNormalizer {
     private val ALREADY_PARAMETERIZED = Regex("\\{[^}]+\\}")
 
     fun normalize(route: String): String {
-        if (ALREADY_PARAMETERIZED.containsMatchIn(route)) {
-            return route
-        }
-
-        var normalized = route
-
-        normalized = normalized.replace(UUID_PATTERN, "{id}")
-
-        normalized = normalized.replace(NUMERIC_PATTERN, "{id}")
-
-        return normalized
+        if (ALREADY_PARAMETERIZED.containsMatchIn(route)) return route
+        return route
+            .replace(UUID_PATTERN, "{id}")
+            .replace(NUMERIC_PATTERN, "{id}")
     }
 }

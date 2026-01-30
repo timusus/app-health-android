@@ -100,19 +100,13 @@ internal class OtelConfig(
     val meter: Meter = sdk.getMeter(INSTRUMENTATION_NAME)
 
     fun shutdown() {
-        try {
-            sdk.shutdown().join(5, TimeUnit.SECONDS)
-        } catch (e: Exception) {
-            // Silently ignore shutdown errors
-        }
+        runCatching { sdk.shutdown().join(5, TimeUnit.SECONDS) }
     }
 
     fun forceFlush() {
-        try {
+        runCatching {
             tracerProvider.forceFlush().join(2, TimeUnit.SECONDS)
             loggerProvider.forceFlush().join(2, TimeUnit.SECONDS)
-        } catch (e: Exception) {
-            // Silently ignore flush errors
         }
     }
 

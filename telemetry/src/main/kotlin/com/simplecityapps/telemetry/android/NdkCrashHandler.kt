@@ -24,20 +24,13 @@ internal class NdkCrashHandler(
     }
 
     private fun checkForPreviousCrash() {
-        if (!crashFile.exists()) {
-            return
-        }
+        if (!crashFile.exists()) return
 
-        try {
+        runCatching {
             val crashData = crashFile.readText()
-            if (crashData.isNotEmpty()) {
-                reportNativeCrash(crashData)
-            }
-        } catch (e: Exception) {
-            // Silently ignore read errors
-        } finally {
-            crashFile.delete()
+            if (crashData.isNotEmpty()) reportNativeCrash(crashData)
         }
+        crashFile.delete()
     }
 
     private fun reportNativeCrash(crashData: String) {

@@ -8,9 +8,6 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.logs.Severity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 internal class LifecycleTracker(
     private val logger: Logger,
@@ -63,15 +60,7 @@ internal class LifecycleTracker(
             mapOf("session.duration_ms" to sessionDurationMs)
         )
 
-        otelConfig?.let { config ->
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    config.forceFlush()
-                } catch (e: Exception) {
-                    // Silently ignore flush errors
-                }
-            }
-        }
+        otelConfig?.forceFlush()
     }
 
     private fun emitLifecycleEvent(eventName: String, extraAttributes: Map<String, Any>) {

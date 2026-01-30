@@ -76,25 +76,13 @@ internal object UrlSanitizer {
         "credential"
     )
 
-    fun sanitize(url: String): String {
-        val urlWithoutQuery = url.substringBefore("?")
-
-        var sanitized = urlWithoutQuery.replace(UUID_PATTERN, "{id}")
-
-        sanitized = sanitized.replace(NUMERIC_ID_PATTERN, "/{id}")
-
-        return sanitized
-    }
+    fun sanitize(url: String): String = url
+        .substringBefore("?")
+        .replace(UUID_PATTERN, "{id}")
+        .replace(NUMERIC_ID_PATTERN, "/{id}")
 
     fun isSensitiveHeader(headerName: String): Boolean {
         val lower = headerName.lowercase()
-
-        if (lower in SENSITIVE_HEADERS) {
-            return true
-        }
-
-        return SENSITIVE_HEADER_PATTERNS.any { pattern ->
-            lower.contains(pattern)
-        }
+        return lower in SENSITIVE_HEADERS || SENSITIVE_HEADER_PATTERNS.any { lower.contains(it) }
     }
 }

@@ -58,15 +58,10 @@ internal class JankTracker(
     private fun reportMetrics() {
         val snapshot = aggregator.snapshot()
         aggregator.reset()
-
-        if (snapshot.totalFrames == 0L) {
-            return
-        }
+        if (snapshot.totalFrames == 0L) return
 
         val activityName = currentActivity.get()?.javaClass?.simpleName ?: "unknown"
-        val attributes = Attributes.of(
-            AttributeKey.stringKey("screen.name"), activityName
-        )
+        val attributes = Attributes.of(AttributeKey.stringKey("screen.name"), activityName)
 
         totalCounter.add(snapshot.totalFrames, attributes)
         slowCounter.add(snapshot.slowFrames, attributes)
@@ -107,31 +102,16 @@ internal class JankTracker(
 
 internal class FrameMetricsAggregator {
 
-    @Volatile
-    var totalFrames: Long = 0L
-        private set
-
-    @Volatile
-    var slowFrames: Long = 0L
-        private set
-
-    @Volatile
-    var frozenFrames: Long = 0L
-        private set
+    private var totalFrames: Long = 0L
+    private var slowFrames: Long = 0L
+    private var frozenFrames: Long = 0L
 
     @Synchronized
     fun recordFrame(durationNanos: Long) {
         totalFrames++
-
         val durationMs = durationNanos / 1_000_000
-
-        if (durationMs > SLOW_THRESHOLD_MS) {
-            slowFrames++
-        }
-
-        if (durationMs > FROZEN_THRESHOLD_MS) {
-            frozenFrames++
-        }
+        if (durationMs > SLOW_THRESHOLD_MS) slowFrames++
+        if (durationMs > FROZEN_THRESHOLD_MS) frozenFrames++
     }
 
     @Synchronized
@@ -142,9 +122,7 @@ internal class FrameMetricsAggregator {
     }
 
     @Synchronized
-    fun snapshot(): FrameMetricsSnapshot {
-        return FrameMetricsSnapshot(totalFrames, slowFrames, frozenFrames)
-    }
+    fun snapshot(): FrameMetricsSnapshot = FrameMetricsSnapshot(totalFrames, slowFrames, frozenFrames)
 
     companion object {
         private const val SLOW_THRESHOLD_MS = 16

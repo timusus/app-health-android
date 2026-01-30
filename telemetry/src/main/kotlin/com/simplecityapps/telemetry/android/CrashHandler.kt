@@ -4,8 +4,6 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.logs.Severity
-import java.io.PrintWriter
-import java.io.StringWriter
 import kotlin.coroutines.CoroutineContext
 
 internal class CrashHandler(
@@ -24,10 +22,7 @@ internal class CrashHandler(
     }
 
     private fun emitCrashLog(thread: Thread, throwable: Throwable) {
-        val stackTrace = StringWriter().also { sw ->
-            throwable.printStackTrace(PrintWriter(sw))
-        }.toString()
-
+        val stackTrace = throwable.stackTraceToString()
         val attributes = Attributes.builder()
             .put(AttributeKey.stringKey("exception.type"), throwable.javaClass.name)
             .put(AttributeKey.stringKey("exception.message"), throwable.message ?: "")
@@ -68,17 +63,13 @@ class TelemetryCoroutineExceptionHandler : kotlinx.coroutines.CoroutineException
         val log = logger ?: return
 
         try {
-            val stackTrace = StringWriter().also { sw ->
-                exception.printStackTrace(PrintWriter(sw))
-            }.toString()
-
             val coroutineName = context[kotlinx.coroutines.CoroutineName]?.name ?: "unknown"
             val job = context[kotlinx.coroutines.Job]
 
             val attributes = Attributes.builder()
                 .put(AttributeKey.stringKey("exception.type"), exception.javaClass.name)
                 .put(AttributeKey.stringKey("exception.message"), exception.message ?: "")
-                .put(AttributeKey.stringKey("exception.stacktrace"), stackTrace)
+                .put(AttributeKey.stringKey("exception.stacktrace"), exception.stackTraceToString())
                 .put(AttributeKey.stringKey("coroutine.name"), coroutineName)
                 .put(AttributeKey.booleanKey("coroutine.cancelled"), job?.isCancelled ?: false)
                 .put(AttributeKey.stringKey("crash.type"), "coroutine")

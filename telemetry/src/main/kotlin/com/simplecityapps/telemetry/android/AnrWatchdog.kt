@@ -83,9 +83,7 @@ internal class AnrWatchdog(
         reportAnr(mainStackTrace, allStackTraces)
     }
 
-    internal fun checkForAnr(mainThreadResponded: Boolean): Boolean {
-        return !mainThreadResponded
-    }
+    internal fun checkForAnr(mainThreadResponded: Boolean): Boolean = !mainThreadResponded
 
     internal fun reportAnr(
         mainStackTrace: Array<StackTraceElement>,

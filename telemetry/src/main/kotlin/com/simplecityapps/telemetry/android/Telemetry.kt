@@ -43,10 +43,7 @@ object Telemetry {
         serviceName: String,
         urlSanitizer: ((String) -> String)? = null
     ) {
-        if (!initialized.compareAndSet(false, true)) {
-            return
-        }
-
+        if (!initialized.compareAndSet(false, true)) return
         this.urlSanitizer = urlSanitizer
         val appContext = context.applicationContext
 
@@ -92,7 +89,7 @@ object Telemetry {
         AnrWatchdog.checkHistoricalAnrs(application, logger)
 
         // 4. Startup Tracer
-        val startupTracer = StartupTracer.create(config.tracer)
+        val startupTracer = StartupTracer(config.tracer)
         startupTracerRef.set(startupTracer)
         application.registerActivityLifecycleCallbacks(startupTracer)
 
@@ -167,9 +164,7 @@ object Telemetry {
         navigationTrackerRef.get()?.track(navController)
     }
 
-    fun okHttpInterceptor(): Interceptor {
-        return NetworkInterceptor { urlSanitizer }
-    }
+    fun okHttpInterceptor(): Interceptor = NetworkInterceptor { urlSanitizer }
 
     fun setUserId(id: String?) {
         sessionManagerRef.get()?.setUserId(id)
@@ -180,23 +175,12 @@ object Telemetry {
     }
 
     internal fun getConfig(): OtelConfig? = configRef.get()
-
     internal fun getSessionManager(): SessionManager? = sessionManagerRef.get()
-
     internal fun getTelemetryScope(): CoroutineScope = telemetryScope
-
     internal fun getUrlSanitizer(): ((String) -> String)? = urlSanitizer
-
-    internal fun setStartupTracer(tracer: StartupTracer?) {
-        startupTracerRef.set(tracer)
-    }
-
+    internal fun setStartupTracer(tracer: StartupTracer?) = startupTracerRef.set(tracer)
     internal fun getStartupTracer(): StartupTracer? = startupTracerRef.get()
-
-    internal fun setNavigationTracker(tracker: NavigationTracker?) {
-        navigationTrackerRef.set(tracker)
-    }
-
+    internal fun setNavigationTracker(tracker: NavigationTracker?) = navigationTrackerRef.set(tracker)
     internal fun getNavigationTracker(): NavigationTracker? = navigationTrackerRef.get()
 
     private fun addUserAttributes(spanBuilder: io.opentelemetry.api.trace.SpanBuilder) {

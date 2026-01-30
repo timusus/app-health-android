@@ -36,19 +36,15 @@ internal class SessionManager(context: Context) {
         val existingId = prefs.getString(KEY_SESSION_ID, null)
         val lastBackground = prefs.getLong(KEY_LAST_BACKGROUND, 0L)
         val now = System.currentTimeMillis()
+        val sessionExpired = lastBackground > 0 && (now - lastBackground) > SESSION_TIMEOUT_MS
 
-        val shouldRegenerate = existingId == null ||
-            (lastBackground > 0 && (now - lastBackground) > SESSION_TIMEOUT_MS)
-
-        val newSessionId = if (shouldRegenerate) {
-            UUID.randomUUID().toString().also { id ->
-                prefs.edit().putString(KEY_SESSION_ID, id).apply()
-            }
+        val sessionId = if (existingId == null || sessionExpired) {
+            UUID.randomUUID().toString().also { prefs.edit().putString(KEY_SESSION_ID, it).apply() }
         } else {
             existingId
         }
 
-        _sessionId.set(newSessionId)
+        _sessionId.set(sessionId)
     }
 
     fun onForeground() {
