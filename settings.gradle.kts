@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "android-telemetry"
 include(":telemetry")
+include(":sample")
