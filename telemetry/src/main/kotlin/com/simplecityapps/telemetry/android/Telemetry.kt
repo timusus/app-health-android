@@ -26,6 +26,7 @@ object Telemetry {
     private val sessionManagerRef = AtomicReference<SessionManager?>(null)
     private val startupTracerRef = AtomicReference<StartupTracer?>(null)
     private val navigationTrackerRef = AtomicReference<NavigationTracker?>(null)
+    private val ndkCrashHandlerRef = AtomicReference<NdkCrashHandler?>(null)
 
     private val telemetryExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "telemetry-worker").apply { isDaemon = true }
@@ -110,6 +111,7 @@ object Telemetry {
         try {
             val ndkCrashHandler = NdkCrashHandler(application, logger)
             ndkCrashHandler.initialize()
+            ndkCrashHandlerRef.set(ndkCrashHandler)
         } catch (e: UnsatisfiedLinkError) {
             android.util.Log.w(TAG, "Native library not available, NDK crash handling disabled", e)
         }
@@ -206,8 +208,19 @@ object Telemetry {
         sessionManagerRef.set(null)
         startupTracerRef.set(null)
         navigationTrackerRef.set(null)
+        ndkCrashHandlerRef.set(null)
         initialized.set(false)
         urlSanitizer = null
+    }
+
+    /**
+     * Triggers a native crash for testing purposes.
+     * WARNING: This will crash the process immediately.
+     * Only use in E2E tests with proper test orchestration.
+     */
+    internal fun triggerNativeCrashForTesting() {
+        ndkCrashHandlerRef.get()?.triggerTestCrash()
+            ?: throw IllegalStateException("NDK crash handler not initialized")
     }
 
     private const val TAG = "Telemetry"

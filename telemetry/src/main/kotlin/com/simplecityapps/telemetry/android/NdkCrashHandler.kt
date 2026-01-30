@@ -21,6 +21,15 @@ internal class NdkCrashHandler(
     }
 
     private external fun nativeInit(crashFilePath: String)
+    private external fun nativeTriggerTestCrash()
+
+    /**
+     * Triggers a native crash for testing purposes.
+     * WARNING: This will crash the process.
+     */
+    internal fun triggerTestCrash() {
+        nativeTriggerTestCrash()
+    }
 
     companion object {
         private const val CRASH_FILE_NAME = "native_crash.txt"

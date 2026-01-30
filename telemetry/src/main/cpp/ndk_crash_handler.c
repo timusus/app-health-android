@@ -173,3 +173,13 @@ Java_com_simplecityapps_telemetry_android_NdkCrashHandler_nativeInit(
         (*env)->ReleaseStringUTFChars(env, crash_file_path, path);
     }
 }
+
+JNIEXPORT void JNICALL
+Java_com_simplecityapps_telemetry_android_NdkCrashHandler_nativeTriggerTestCrash(
+    JNIEnv *env,
+    jobject thiz
+) {
+    // Deliberately trigger SIGSEGV for testing
+    volatile int* ptr = NULL;
+    *ptr = 42;
+}
