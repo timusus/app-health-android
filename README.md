@@ -124,20 +124,7 @@ AppHealth.reportFullyDrawn()
 
 ## Custom Instrumentation
 
-Use the same OpenTelemetry SDK for your own instrumentation:
-
-```kotlin
-val openTelemetry = OpenTelemetrySdk.builder()
-    // ... configure as shown above
-    .build()
-
-AppHealth.init(context, openTelemetry)
-
-// Use the same SDK for your own telemetry
-val tracer = openTelemetry.getTracer("my-feature")
-val span = tracer.spanBuilder("my-operation").startSpan()
-// AppHealth automatically adds session.id to all spans
-```
+AppHealth automatically adds `session.id` to all spans and logs created through the OpenTelemetry SDK you provide. For custom instrumentation, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/languages/java/).
 
 ## Initialization Control
 

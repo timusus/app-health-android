@@ -70,16 +70,9 @@ All telemetry signals include these resource attributes:
 | `session.id` | string | Required | UUID identifying the current user session | `"550e8400-e29b-41d4-a716-446655440000"` |
 | `device.installation.id` | string | Optional | Random UUID for device correlation. Persists until app uninstall. Can be disabled via `installationIdEnabled = false` for GDPR compliance. | `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"` |
 
-### Custom Attributes via OpenTelemetry
+### Custom Instrumentation
 
-For custom spans, events, and attributes, use the app-provided OpenTelemetry SDK:
-
-```kotlin
-// Use the same SDK you passed to AppHealth.init()
-val tracer = openTelemetry.getTracer("my-feature")
-val span = tracer.spanBuilder("custom-operation").startSpan()
-// AppHealth automatically adds session.id to all spans
-```
+AppHealth automatically adds `session.id` to all spans and logs created through the OpenTelemetry SDK you provide. For custom instrumentation, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/languages/java/).
 
 ---
 
@@ -175,27 +168,6 @@ Tracks navigation between screens in Jetpack Compose Navigation.
 1. UUIDs in routes are replaced with `{id}`
 2. Numeric segments in routes are replaced with `{id}`
 3. Already parameterized routes (e.g., `{userId}`) are preserved as-is
-
----
-
-### Custom Spans
-
-Create custom spans using the shared OpenTelemetry instance:
-
-**Span Kind**: `INTERNAL`
-
-**Example**:
-```kotlin
-val tracer = openTelemetry.getTracer("my-feature")
-val span = tracer.spanBuilder("load_podcast_list").startSpan()
-try {
-    // ... perform work ...
-} finally {
-    span.end()
-}
-```
-
-Custom spans automatically inherit resource attributes (session.id, device info, etc.).
 
 ---
 
@@ -378,29 +350,6 @@ Reported every 30 seconds per activity.
 | `app.foreground.duration_ms` | long | Required | Time spent in foreground in milliseconds | `120000` |
 
 **Trigger**: `ProcessLifecycleOwner` transitions to `ON_STOP`.
-
----
-
-### Custom Events
-
-Create custom log events using the shared OpenTelemetry instance:
-
-**Severity**: `INFO`
-
-**Example**:
-```kotlin
-val logger = openTelemetry.logsBridge.loggerBuilder("my-feature").build()
-logger.logRecordBuilder()
-    .setSeverity(Severity.INFO)
-    .setBody("playback_started")
-    .setAllAttributes(Attributes.of(
-        AttributeKey.stringKey("podcast_id"), "abc-123",
-        AttributeKey.longKey("duration_ms"), 3600000L
-    ))
-    .emit()
-```
-
-Custom events automatically inherit resource attributes (session.id, device info, etc.).
 
 ---
 
