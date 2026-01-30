@@ -282,16 +282,6 @@ object AppHealth {
             ?: throw IllegalStateException("NDK crash handler not initialized")
     }
 
-    // Internal accessors for testing
-    internal fun getTracer(): Tracer? = _tracer
-    internal fun getLogger(): Logger? = _logger
-    internal fun getMeter(): Meter? = _meter
-    internal fun getAppHealthScope(): CoroutineScope = appHealthScope
-    internal fun setStartupTracer(tracer: StartupTracer?) { startupTracer = tracer }
-    internal fun getStartupTracer(): StartupTracer? = startupTracer
-    internal fun setNavigationTracker(tracker: NavigationTracker?) { navigationTracker = tracker }
-    internal fun getNavigationTracker(): NavigationTracker? = navigationTracker
-
     /**
      * Forces all pending telemetry to be exported.
      * Useful in E2E tests to ensure telemetry reaches the collector.

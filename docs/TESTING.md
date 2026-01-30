@@ -20,7 +20,6 @@ We use **fakes** over **mocks** wherever possible:
 apphealth/src/test/kotlin/
   com/simplecityapps/apphealth/android/
     fakes/
-      FakeSharedPreferences.kt    # In-memory SharedPreferences
       InMemoryTelemetry.kt        # Wraps OTel SDK testing exporters
     CrashHandlerTest.kt
     ...
@@ -63,16 +62,6 @@ assertEquals(Severity.ERROR, logs[0].severity)
 assertTrue(logs[0].body.asString().contains("RuntimeException"))
 ```
 
-### FakeSharedPreferences
-
-In-memory implementation for testing persistence:
-
-```kotlin
-val prefs = FakeSharedPreferences()
-prefs.edit().putString("key", "value").apply()
-assertEquals("value", prefs.getString("key", null))
-```
-
 ### MockOtlpCollector
 
 HTTP server for E2E tests that captures OTLP requests:
@@ -82,11 +71,11 @@ val collector = MockOtlpCollector()
 collector.start()
 collector.expectSpans(1)
 
-// Use the shared OTel instance for custom telemetry
-val tracer = AppHealth.openTelemetry.getTracer("test")
-val span = tracer.spanBuilder("test-span").startSpan()
+// Create span using your OpenTelemetry SDK
+val span = openTelemetry.getTracer("test").spanBuilder("test-span").startSpan()
 span.end()
 
+AppHealth.forceFlush()
 assertTrue(collector.awaitSpans(timeoutSeconds = 30))
 ```
 
