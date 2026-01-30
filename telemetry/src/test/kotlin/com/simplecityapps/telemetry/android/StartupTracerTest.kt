@@ -1,75 +1,134 @@
 package com.simplecityapps.telemetry.android
 
-import io.opentelemetry.api.trace.Span
-import io.opentelemetry.api.trace.SpanBuilder
-import io.opentelemetry.api.trace.Tracer
+import android.app.Activity
+import com.simplecityapps.telemetry.android.fakes.InMemoryTelemetry
+import io.opentelemetry.api.common.AttributeKey
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import org.mockito.kotlin.*
+import org.mockito.kotlin.mock
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class StartupTracerTest {
 
-    private lateinit var tracer: Tracer
-    private lateinit var spanBuilder: SpanBuilder
-    private lateinit var span: Span
+    private lateinit var telemetry: InMemoryTelemetry
+    private lateinit var activity: Activity
 
     @Before
     fun setup() {
-        span = mock {
-            on { end() } doAnswer {}
-            on { setAttribute(any<String>(), any<Long>()) } doReturn it
-            on { setAttribute(any<String>(), any<String>()) } doReturn it
-            on { setAttribute(any<String>(), any<Boolean>()) } doReturn it
-        }
-        spanBuilder = mock {
-            on { startSpan() } doReturn span
-            on { setAttribute(any<String>(), any<Long>()) } doReturn it
-            on { setAttribute(any<String>(), any<String>()) } doReturn it
-            on { setAttribute(any<String>(), any<Boolean>()) } doReturn it
-        }
-        tracer = mock {
-            on { spanBuilder(any()) } doReturn spanBuilder
-        }
+        telemetry = InMemoryTelemetry()
+        activity = mock()
+    }
+
+    @After
+    fun teardown() {
+        telemetry.shutdown()
     }
 
     @Test
     fun `creates startup span on first activity resume`() {
-        val startupTracer = StartupTracer(tracer, processStartTime = 1000L)
+        val startupTracer = StartupTracer(
+            tracer = telemetry.tracer,
+            processStartTime = 1000L,
+            clock = { 1500L }
+        )
 
         startupTracer.onFirstActivityResumed(currentTime = 1500L)
 
-        verify(tracer).spanBuilder("app.startup")
-        verify(span).end()
+        val spans = telemetry.getSpans()
+        assertEquals(1, spans.size)
+        assertEquals("app.startup", spans[0].name)
     }
 
     @Test
-    fun `only records first activity resume`() {
-        val startupTracer = StartupTracer(tracer, processStartTime = 1000L)
+    fun `records startup duration in span attributes`() {
+        val startupTracer = StartupTracer(
+            tracer = telemetry.tracer,
+            processStartTime = 1000L,
+            clock = { 1500L }
+        )
 
         startupTracer.onFirstActivityResumed(currentTime = 1500L)
-        startupTracer.onFirstActivityResumed(currentTime = 2000L)
 
-        verify(tracer, times(1)).spanBuilder("app.startup")
+        val spans = telemetry.getSpans()
+        val duration = spans[0].attributes.get(AttributeKey.longKey("startup.duration_ms"))
+        assertEquals(500L, duration) // 1500 - 1000
+    }
+
+    @Test
+    fun `marks startup type as cold`() {
+        val startupTracer = StartupTracer(
+            tracer = telemetry.tracer,
+            processStartTime = 1000L,
+            clock = { 1500L }
+        )
+
+        startupTracer.onFirstActivityResumed(currentTime = 1500L)
+
+        val spans = telemetry.getSpans()
+        val startupType = spans[0].attributes.get(AttributeKey.stringKey("startup.type"))
+        assertEquals("cold", startupType)
+    }
+
+    @Test
+    fun `only records first activity resume via lifecycle callback`() {
+        val startupTracer = StartupTracer(
+            tracer = telemetry.tracer,
+            processStartTime = 1000L,
+            clock = { 1500L }
+        )
+
+        // Use the lifecycle callback which has the guard
+        startupTracer.onActivityResumed(activity)
+        startupTracer.onActivityResumed(activity)
+
+        val spans = telemetry.getSpans()
+        assertEquals(1, spans.size)
     }
 
     @Test
     fun `reportFullyDrawn creates full startup span`() {
-        val startupTracer = StartupTracer(tracer, processStartTime = 1000L)
+        val startupTracer = StartupTracer(
+            tracer = telemetry.tracer,
+            processStartTime = 1000L,
+            clock = { 2000L }
+        )
 
         startupTracer.reportFullyDrawn(currentTime = 2000L)
 
-        verify(tracer).spanBuilder("app.startup.full")
-        verify(span).end()
+        val spans = telemetry.getSpans()
+        assertEquals(1, spans.size)
+        assertEquals("app.startup.full", spans[0].name)
+    }
+
+    @Test
+    fun `reportFullyDrawn includes fully_drawn attribute`() {
+        val startupTracer = StartupTracer(
+            tracer = telemetry.tracer,
+            processStartTime = 1000L,
+            clock = { 2000L }
+        )
+
+        startupTracer.reportFullyDrawn(currentTime = 2000L)
+
+        val spans = telemetry.getSpans()
+        val fullyDrawn = spans[0].attributes.get(AttributeKey.booleanKey("startup.fully_drawn"))
+        assertTrue(fullyDrawn == true)
     }
 
     @Test
     fun `reportFullyDrawn only records once`() {
-        val startupTracer = StartupTracer(tracer, processStartTime = 1000L)
+        val startupTracer = StartupTracer(
+            tracer = telemetry.tracer,
+            processStartTime = 1000L,
+            clock = { 2000L }
+        )
 
         startupTracer.reportFullyDrawn(currentTime = 2000L)
         startupTracer.reportFullyDrawn(currentTime = 3000L)
 
-        verify(tracer, times(1)).spanBuilder("app.startup.full")
+        val spans = telemetry.getSpans()
+        assertEquals(1, spans.size)
     }
 }

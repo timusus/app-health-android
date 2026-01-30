@@ -11,7 +11,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 internal class StartupTracer(
     private val tracer: Tracer,
-    private val processStartTime: Long = getProcessStartElapsedRealtime()
+    private val processStartTime: Long = getProcessStartElapsedRealtime(),
+    private val clock: () -> Long = { SystemClock.elapsedRealtime() }
 ) : Application.ActivityLifecycleCallbacks {
 
     private val ttidRecorded = AtomicBoolean(false)
@@ -19,7 +20,7 @@ internal class StartupTracer(
 
     override fun onActivityResumed(activity: Activity) {
         if (ttidRecorded.compareAndSet(false, true)) {
-            onFirstActivityResumed(SystemClock.elapsedRealtime())
+            onFirstActivityResumed(clock())
         }
     }
 

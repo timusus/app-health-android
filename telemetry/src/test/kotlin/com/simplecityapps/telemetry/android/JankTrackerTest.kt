@@ -11,9 +11,10 @@ class JankTrackerTest {
 
         aggregator.recordFrame(durationNanos = 10_000_000) // 10ms
 
-        assertEquals(1, aggregator.totalFrames)
-        assertEquals(0, aggregator.slowFrames)
-        assertEquals(0, aggregator.frozenFrames)
+        val snapshot = aggregator.snapshot()
+        assertEquals(1, snapshot.totalFrames)
+        assertEquals(0, snapshot.slowFrames)
+        assertEquals(0, snapshot.frozenFrames)
     }
 
     @Test
@@ -22,9 +23,10 @@ class JankTrackerTest {
 
         aggregator.recordFrame(durationNanos = 20_000_000) // 20ms
 
-        assertEquals(1, aggregator.totalFrames)
-        assertEquals(1, aggregator.slowFrames)
-        assertEquals(0, aggregator.frozenFrames)
+        val snapshot = aggregator.snapshot()
+        assertEquals(1, snapshot.totalFrames)
+        assertEquals(1, snapshot.slowFrames)
+        assertEquals(0, snapshot.frozenFrames)
     }
 
     @Test
@@ -33,9 +35,10 @@ class JankTrackerTest {
 
         aggregator.recordFrame(durationNanos = 800_000_000) // 800ms
 
-        assertEquals(1, aggregator.totalFrames)
-        assertEquals(1, aggregator.slowFrames)
-        assertEquals(1, aggregator.frozenFrames)
+        val snapshot = aggregator.snapshot()
+        assertEquals(1, snapshot.totalFrames)
+        assertEquals(1, snapshot.slowFrames)
+        assertEquals(1, snapshot.frozenFrames)
     }
 
     @Test
@@ -45,8 +48,9 @@ class JankTrackerTest {
 
         aggregator.reset()
 
-        assertEquals(0, aggregator.totalFrames)
-        assertEquals(0, aggregator.slowFrames)
-        assertEquals(0, aggregator.frozenFrames)
+        val snapshot = aggregator.snapshot()
+        assertEquals(0, snapshot.totalFrames)
+        assertEquals(0, snapshot.slowFrames)
+        assertEquals(0, snapshot.frozenFrames)
     }
 }

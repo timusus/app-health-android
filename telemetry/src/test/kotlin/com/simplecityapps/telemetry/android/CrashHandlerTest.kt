@@ -1,29 +1,25 @@
 package com.simplecityapps.telemetry.android
 
-import io.opentelemetry.api.logs.Logger
-import io.opentelemetry.api.logs.LogRecordBuilder
+import com.simplecityapps.telemetry.android.fakes.InMemoryTelemetry
 import io.opentelemetry.api.logs.Severity
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import org.mockito.kotlin.*
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class CrashHandlerTest {
 
-    private lateinit var logger: Logger
-    private lateinit var logRecordBuilder: LogRecordBuilder
+    private lateinit var telemetry: InMemoryTelemetry
 
     @Before
     fun setup() {
-        logRecordBuilder = mock {
-            on { setSeverity(any()) } doReturn it
-            on { setBody(any<String>()) } doReturn it
-            on { setAllAttributes(any()) } doReturn it
-            on { emit() } doAnswer {}
-        }
-        logger = mock {
-            on { logRecordBuilder() } doReturn logRecordBuilder
-        }
+        telemetry = InMemoryTelemetry()
+    }
+
+    @After
+    fun teardown() {
+        telemetry.shutdown()
     }
 
     @Test
@@ -33,40 +29,54 @@ class CrashHandlerTest {
             chainedHandlerCalled = true
         }
 
-        val handler = CrashHandler(logger, previousHandler)
+        val handler = CrashHandler(telemetry.logger, previousHandler)
         val exception = RuntimeException("Test crash")
-        val thread = Thread.currentThread()
 
-        handler.uncaughtException(thread, exception)
+        handler.uncaughtException(Thread.currentThread(), exception)
 
-        verify(logRecordBuilder).setSeverity(Severity.ERROR)
-        verify(logRecordBuilder).setBody(argThat<String> { contains("RuntimeException") })
-        verify(logRecordBuilder).emit()
+        val logs = telemetry.getLogRecords()
+        assertEquals(1, logs.size)
+        assertEquals(Severity.ERROR, logs[0].severity)
+        assertTrue(logs[0].body.asString().contains("RuntimeException"))
         assertTrue(chainedHandlerCalled, "Should chain to previous handler")
     }
 
     @Test
-    fun `includes thread name in log`() {
-        val handler = CrashHandler(logger, null)
+    fun `includes thread name in log attributes`() {
+        val handler = CrashHandler(telemetry.logger, null)
         val exception = RuntimeException("Test crash")
         val thread = Thread("test-thread-name")
 
         handler.uncaughtException(thread, exception)
 
-        verify(logRecordBuilder).setAllAttributes(argThat { attrs ->
-            attrs.asMap().any { (key, value) ->
-                key.key == "thread.name" && value == "test-thread-name"
-            }
-        })
+        val logs = telemetry.getLogRecords()
+        assertEquals(1, logs.size)
+
+        val threadName = logs[0].attributes.get(io.opentelemetry.api.common.AttributeKey.stringKey("thread.name"))
+        assertEquals("test-thread-name", threadName)
     }
 
     @Test
-    fun `handles null previous handler gracefully`() {
-        val handler = CrashHandler(logger, null)
+    fun `includes exception stacktrace in log attributes`() {
+        val handler = CrashHandler(telemetry.logger, null)
         val exception = RuntimeException("Test crash")
 
         handler.uncaughtException(Thread.currentThread(), exception)
 
-        verify(logRecordBuilder).emit()
+        val logs = telemetry.getLogRecords()
+        val stacktrace = logs[0].attributes.get(io.opentelemetry.api.common.AttributeKey.stringKey("exception.stacktrace"))
+        assertTrue(stacktrace?.contains("RuntimeException") == true)
+        assertTrue(stacktrace?.contains("Test crash") == true)
+    }
+
+    @Test
+    fun `handles null previous handler gracefully`() {
+        val handler = CrashHandler(telemetry.logger, null)
+        val exception = RuntimeException("Test crash")
+
+        handler.uncaughtException(Thread.currentThread(), exception)
+
+        val logs = telemetry.getLogRecords()
+        assertEquals(1, logs.size)
     }
 }

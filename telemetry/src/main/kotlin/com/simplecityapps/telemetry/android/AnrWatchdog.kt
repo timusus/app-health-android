@@ -19,8 +19,8 @@ internal class AnrWatchdog(
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
     private val checkIntervalMs: Long = DEFAULT_CHECK_INTERVAL_MS
 ) {
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val watchdogThread: Thread
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+    private var watchdogThread: Thread? = null
     private val running = AtomicBoolean(false)
     private val lastResponseTime = AtomicLong(System.currentTimeMillis())
     private val tickReceived = AtomicBoolean(true)
@@ -30,33 +30,31 @@ internal class AnrWatchdog(
         lastResponseTime.set(System.currentTimeMillis())
     }
 
-    init {
-        watchdogThread = Thread({
-            while (running.get()) {
-                try {
-                    checkMainThread()
-                    Thread.sleep(checkIntervalMs)
-                } catch (e: InterruptedException) {
-                    break
-                } catch (e: Exception) {
-                    // Continue monitoring
-                }
+    private fun createWatchdogThread(): Thread = Thread({
+        while (running.get()) {
+            try {
+                checkMainThread()
+                Thread.sleep(checkIntervalMs)
+            } catch (e: InterruptedException) {
+                break
+            } catch (e: Exception) {
+                // Continue monitoring
             }
-        }, "anr-watchdog")
-        watchdogThread.isDaemon = true
-    }
+        }
+    }, "anr-watchdog").apply { isDaemon = true }
 
     fun start() {
         if (running.compareAndSet(false, true)) {
             lastResponseTime.set(System.currentTimeMillis())
             tickReceived.set(true)
-            watchdogThread.start()
+            watchdogThread = createWatchdogThread()
+            watchdogThread?.start()
         }
     }
 
     fun stop() {
         running.set(false)
-        watchdogThread.interrupt()
+        watchdogThread?.interrupt()
     }
 
     private fun checkMainThread() {

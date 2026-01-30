@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.navigation.NavController
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.api.logs.Severity
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
@@ -191,7 +192,7 @@ object Telemetry {
         }
     }
 
-    private fun addSessionAttributes(builder: Attributes.Builder) {
+    private fun addSessionAttributes(builder: AttributesBuilder) {
         val session = sessionManagerRef.get() ?: return
         session.userId?.let { builder.put(AttributeKey.stringKey("user.id"), it) }
         session.customAttributes.forEach { (key, value) ->
