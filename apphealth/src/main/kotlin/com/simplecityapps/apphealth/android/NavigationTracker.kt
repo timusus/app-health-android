@@ -10,7 +10,6 @@ internal class NavigationTracker(
     private val tracer: Tracer
 ) {
     private val currentSpan = AtomicReference<Span?>(null)
-    private val currentRoute = AtomicReference<String?>(null)
 
     suspend fun track(navController: NavController) {
         navController.currentBackStackEntryFlow.collectLatest { entry ->
@@ -24,7 +23,6 @@ internal class NavigationTracker(
                 .startSpan()
 
             currentSpan.set(span)
-            currentRoute.set(normalizedRoute)
         }
     }
 

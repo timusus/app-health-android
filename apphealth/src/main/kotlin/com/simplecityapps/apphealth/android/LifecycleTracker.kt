@@ -42,7 +42,7 @@ internal class LifecycleTracker(
     }
 
     private fun onForeground() {
-        emitLifecycleEvent("app.foreground", emptyMap())
+        emitLifecycleEvent("app.foreground")
     }
 
     private fun onBackground() {
@@ -64,16 +64,12 @@ internal class LifecycleTracker(
         }
     }
 
-    private fun emitLifecycleEvent(eventName: String, extraAttributes: Map<String, Any>) {
+    private fun emitLifecycleEvent(eventName: String, extraAttributes: Map<String, Long> = emptyMap()) {
         val builder = Attributes.builder()
             .put(AttributeKey.stringKey("event.name"), eventName)
 
         extraAttributes.forEach { (key, value) ->
-            when (value) {
-                is Long -> builder.put(AttributeKey.longKey(key), value)
-                is String -> builder.put(AttributeKey.stringKey(key), value)
-                is Boolean -> builder.put(AttributeKey.booleanKey(key), value)
-            }
+            builder.put(AttributeKey.longKey(key), value)
         }
 
         logger.logRecordBuilder()

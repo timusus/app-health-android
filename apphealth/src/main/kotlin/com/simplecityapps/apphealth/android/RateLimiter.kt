@@ -15,12 +15,9 @@ internal class RateLimiter(
     @Synchronized
     fun tryAcquire(): Boolean {
         refillIfNeeded()
-        return if (tokens > 0) {
-            tokens--
-            true
-        } else {
-            false
-        }
+        if (tokens <= 0) return false
+        tokens--
+        return true
     }
 
     private fun refillIfNeeded() {

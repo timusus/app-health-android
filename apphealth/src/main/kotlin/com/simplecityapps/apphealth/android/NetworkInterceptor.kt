@@ -60,25 +60,7 @@ internal class NetworkInterceptor(
             return response
         }
 
-        // Create span only if sampled
-        val customSanitizer = urlSanitizerProvider()
-        val sanitizedUrl = customSanitizer?.invoke(request.url.toString())
-            ?: UrlSanitizer.sanitize(request.url.toString())
-
-        val span = tracer.spanBuilder("HTTP ${request.method}")
-            .setSpanKind(SpanKind.CLIENT)
-            .setAttribute("http.request.method", request.method)
-            .setAttribute("url.full", sanitizedUrl)
-            .setAttribute("url.path", request.url.encodedPath)
-            .setAttribute("server.address", request.url.host)
-            .setAttribute("server.port", request.url.port.toLong())
-            .startSpan()
-
-        request.body?.contentLength()?.let { size ->
-            if (size > 0) {
-                span.setAttribute("http.request.body.size", size)
-            }
-        }
+        val span = createRequestSpan(tracer, request)
 
         span.setAttribute("http.response.status_code", response.code.toLong())
 
@@ -96,7 +78,7 @@ internal class NetworkInterceptor(
         return response
     }
 
-    private fun createSpanForException(tracer: Tracer, request: okhttp3.Request, e: IOException) {
+    private fun createRequestSpan(tracer: Tracer, request: okhttp3.Request): io.opentelemetry.api.trace.Span {
         val customSanitizer = urlSanitizerProvider()
         val sanitizedUrl = customSanitizer?.invoke(request.url.toString())
             ?: UrlSanitizer.sanitize(request.url.toString())
@@ -116,6 +98,11 @@ internal class NetworkInterceptor(
             }
         }
 
+        return span
+    }
+
+    private fun createSpanForException(tracer: Tracer, request: okhttp3.Request, e: IOException) {
+        val span = createRequestSpan(tracer, request)
         span.setStatus(StatusCode.ERROR, e.message ?: "Network error")
         span.recordException(e)
         span.end()
