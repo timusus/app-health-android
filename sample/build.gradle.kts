@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.simplecityapps.telemetry.sample"
+    namespace = "com.simplecityapps.apphealth.sample"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.simplecityapps.telemetry.sample"
+        applicationId = "com.simplecityapps.apphealth.sample"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -20,6 +20,16 @@ android {
 
     testOptions {
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
+
+        managedDevices {
+            localDevices {
+                create("pixel6api31") {
+                    device = "Pixel 6"
+                    apiLevel = 31
+                    systemImageSource = "aosp-atd"
+                }
+            }
+        }
     }
 
     buildTypes {
@@ -47,7 +57,11 @@ android {
 }
 
 dependencies {
-    implementation(project(":telemetry"))
+    implementation(project(":apphealth"))
+
+    // OpenTelemetry SDK - needed since sample app creates and configures its own OTel SDK
+    implementation("io.opentelemetry:opentelemetry-sdk:1.32.0")
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp:1.32.0")
 
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -70,6 +84,11 @@ dependencies {
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.01.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    androidTestImplementation("org.jetbrains.kotlin:kotlin-test:1.9.21")
+
+    // OpenTelemetry SDK for E2E tests
+    androidTestImplementation("io.opentelemetry:opentelemetry-sdk:1.32.0")
+    androidTestImplementation("io.opentelemetry:opentelemetry-exporter-otlp:1.32.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     androidTestUtil("androidx.test:orchestrator:1.4.2")

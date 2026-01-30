@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "android-telemetry"
-include(":telemetry")
+rootProject.name = "app-health-android"
+include(":apphealth")
 include(":sample")

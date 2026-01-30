@@ -1,6 +1,6 @@
 # Testing Strategy
 
-This document describes the testing approach for the Android Telemetry SDK.
+This document describes the testing approach for the App Health Android SDK.
 
 ## Philosophy
 
@@ -17,8 +17,8 @@ We use **fakes** over **mocks** wherever possible:
 ## Test Structure
 
 ```
-telemetry/src/test/kotlin/
-  com/simplecityapps/telemetry/android/
+apphealth/src/test/kotlin/
+  com/simplecityapps/apphealth/android/
     fakes/
       FakeSharedPreferences.kt    # In-memory SharedPreferences
       InMemoryTelemetry.kt        # Wraps OTel SDK testing exporters
@@ -27,9 +27,9 @@ telemetry/src/test/kotlin/
     ...
 
 sample/src/androidTest/kotlin/
-  com/simplecityapps/telemetry/sample/
+  com/simplecityapps/apphealth/sample/
     MockOtlpCollector.kt          # HTTP server capturing OTLP requests
-    TelemetryE2ETest.kt
+    AppHealthE2ETest.kt
     CrashHandlerE2ETest.kt
     NetworkInterceptorE2ETest.kt
 ```
@@ -38,7 +38,7 @@ sample/src/androidTest/kotlin/
 
 ```bash
 # Unit tests (JVM)
-./gradlew :telemetry:test
+./gradlew :apphealth:test
 
 # E2E tests (requires device/emulator)
 ./gradlew :sample:connectedAndroidTest
@@ -83,12 +83,14 @@ HTTP server for E2E tests that captures OTLP requests:
 ```kotlin
 val collector = MockOtlpCollector()
 collector.start()
-collector.expectLogs(1)
+collector.expectSpans(1)
 
-Telemetry.logEvent("test.event")
+// Use the shared OTel instance for custom telemetry
+val tracer = AppHealth.openTelemetry.getTracer("test")
+val span = tracer.spanBuilder("test-span").startSpan()
+span.end()
 
-assertTrue(collector.awaitLogs(timeoutSeconds = 30))
-assertTrue(collector.hasLogContaining("test.event"))
+assertTrue(collector.awaitSpans(timeoutSeconds = 30))
 ```
 
 ## Test Coverage
@@ -104,7 +106,7 @@ assertTrue(collector.hasLogContaining("test.event"))
 | Lifecycle Tracking | ✓ `LifecycleTrackerTest` | - |
 | Frame Metrics | ✓ `JankTrackerTest` | - |
 | Navigation Tracking | ✓ `NavigationTrackerTest` | - |
-| Custom Events/Spans | - | ✓ `TelemetryE2ETest` |
+| Custom Events/Spans | - | ✓ `AppHealthE2ETest` |
 | NDK Crash Reporter | ✓ `NdkCrashReporterTest` | - |
 | NDK Signal Handler | - | Manual (requires native crash) |
 
@@ -137,7 +139,7 @@ Use `MockOtlpCollector` to verify telemetry reaches the backend:
 fun myFeatureReachesCollector() {
     collector.expectLogs(1)
 
-    Telemetry.someFeature()
+    AppHealth.someFeature()
 
     assertTrue(collector.awaitLogs(timeoutSeconds = 30))
 }
