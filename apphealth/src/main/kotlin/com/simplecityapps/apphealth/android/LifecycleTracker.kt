@@ -29,20 +29,15 @@ internal class LifecycleTracker(
     }
 
     internal fun onStateChanged(state: Lifecycle.State) {
-        when (state) {
-            Lifecycle.State.STARTED, Lifecycle.State.RESUMED -> {
-                if (!isInForeground) {
-                    isInForeground = true
-                    foregroundStartTime = System.currentTimeMillis()
-                    onForeground()
-                }
-            }
-            Lifecycle.State.CREATED, Lifecycle.State.INITIALIZED, Lifecycle.State.DESTROYED -> {
-                if (isInForeground) {
-                    isInForeground = false
-                    onBackground()
-                }
-            }
+        val shouldBeInForeground = state.isAtLeast(Lifecycle.State.STARTED)
+
+        if (shouldBeInForeground && !isInForeground) {
+            isInForeground = true
+            foregroundStartTime = System.currentTimeMillis()
+            onForeground()
+        } else if (!shouldBeInForeground && isInForeground) {
+            isInForeground = false
+            onBackground()
         }
     }
 

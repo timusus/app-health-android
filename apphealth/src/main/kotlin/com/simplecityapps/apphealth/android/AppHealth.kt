@@ -112,10 +112,10 @@ object AppHealth {
         val latch = java.util.concurrent.CountDownLatch(1)
         _readyLatch = latch
 
-        val userConfig = AppHealthConfig().apply(configure)
-        appHealthConfig = userConfig
+        val config = AppHealthConfig().apply(configure)
+        appHealthConfig = config
 
-        val appContext = context.applicationContext
+        val application = context.applicationContext as Application
 
         appHealthScope.launch {
             try {
@@ -130,14 +130,7 @@ object AppHealth {
                 _logger = logger
                 _meter = meter
 
-                initializeCollectors(
-                    appContext as Application,
-                    tracer,
-                    logger,
-                    meter,
-                    openTelemetry,
-                    userConfig
-                )
+                initializeCollectors(application, tracer, logger, meter, openTelemetry, config)
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Failed to initialize AppHealth", e)
             } finally {
@@ -154,7 +147,7 @@ object AppHealth {
      */
     fun awaitReady(timeoutMs: Long = 5000): Boolean {
         val latch = _readyLatch ?: return isReady
-        return latch.await(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+        return latch.await(timeoutMs, TimeUnit.MILLISECONDS)
     }
 
     private fun initializeCollectors(
