@@ -6,8 +6,8 @@ Automatic crash reporting, performance metrics, and observability for Android ap
 
 ```kotlin
 // In Application.onCreate()
-val otelSdk = createOpenTelemetrySdk("https://collector.example.com", "my-app")
-AppHealth.init(context = this, openTelemetry = otelSdk)
+val openTelemetry = createOpenTelemetrySdk("https://collector.example.com", "my-app")
+AppHealth.init(context = this, openTelemetry = openTelemetry)
 ```
 
 That's it. The SDK automatically captures crashes, ANRs, startup timing, jank, and lifecycle events.
@@ -58,7 +58,7 @@ fun createOpenTelemetrySdk(endpoint: String, serviceName: String): OpenTelemetry
 All features are **enabled by default**. Disable what you don't need:
 
 ```kotlin
-AppHealth.init(context, otelSdk) {
+AppHealth.init(context, openTelemetry) {
     crashHandling = true          // JVM crash handler (default: true)
     coroutineCrashHandling = true // Coroutine exceptions (default: true)
     anrDetection = true           // ANR watchdog (default: true)
@@ -86,7 +86,7 @@ URLs are automatically sanitized (IDs, UUIDs, query params stripped).
 **Sampling** — For high-traffic apps, reduce telemetry volume:
 
 ```kotlin
-AppHealth.init(context, otelSdk) {
+AppHealth.init(context, openTelemetry) {
     networkSampling {
         successSampleRate = 0.1   // Sample 10% of successful requests
         maxErrorsPerMinute = 10   // Cap errors during outages (default: 10)
@@ -97,7 +97,7 @@ AppHealth.init(context, otelSdk) {
 **Custom URL Sanitizer** — Override the default ID/UUID stripping:
 
 ```kotlin
-AppHealth.init(context, otelSdk) {
+AppHealth.init(context, openTelemetry) {
     urlSanitizer = { url ->
         url.replace(Regex("/v[0-9]+/"), "/v{version}/")
     }
@@ -127,14 +127,14 @@ AppHealth.reportFullyDrawn()
 Use the same OpenTelemetry SDK for your own instrumentation:
 
 ```kotlin
-val otelSdk = OpenTelemetrySdk.builder()
+val openTelemetry = OpenTelemetrySdk.builder()
     // ... configure as shown above
     .build()
 
-AppHealth.init(context, otelSdk)
+AppHealth.init(context, openTelemetry)
 
 // Use the same SDK for your own telemetry
-val tracer = otelSdk.getTracer("my-feature")
+val tracer = openTelemetry.getTracer("my-feature")
 val span = tracer.spanBuilder("my-operation").startSpan()
 // AppHealth automatically adds session.id to all spans
 ```
@@ -142,7 +142,7 @@ val span = tracer.spanBuilder("my-operation").startSpan()
 ## Initialization Control
 
 ```kotlin
-AppHealth.init(context, otelSdk)
+AppHealth.init(context, openTelemetry)
 
 // Check if init() was called
 if (AppHealth.isInitialized) { ... }
@@ -186,7 +186,7 @@ The installation ID is a **random UUID** that allows you to distinguish "100 cra
 To disable the installation ID for GDPR compliance:
 
 ```kotlin
-AppHealth.init(context, otelSdk) {
+AppHealth.init(context, openTelemetry) {
     installationIdEnabled = false
 }
 ```

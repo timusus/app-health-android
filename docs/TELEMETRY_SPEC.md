@@ -76,7 +76,7 @@ For custom spans, events, and attributes, use the app-provided OpenTelemetry SDK
 
 ```kotlin
 // Use the same SDK you passed to AppHealth.init()
-val tracer = otelSdk.getTracer("my-feature")
+val tracer = openTelemetry.getTracer("my-feature")
 val span = tracer.spanBuilder("custom-operation").startSpan()
 // AppHealth automatically adds session.id to all spans
 ```
@@ -186,7 +186,7 @@ Create custom spans using the shared OpenTelemetry instance:
 
 **Example**:
 ```kotlin
-val tracer = otelSdk.getTracer("my-feature")
+val tracer = openTelemetry.getTracer("my-feature")
 val span = tracer.spanBuilder("load_podcast_list").startSpan()
 try {
     // ... perform work ...
@@ -389,7 +389,7 @@ Create custom log events using the shared OpenTelemetry instance:
 
 **Example**:
 ```kotlin
-val logger = otelSdk.logsBridge.loggerBuilder("my-feature").build()
+val logger = openTelemetry.logsBridge.loggerBuilder("my-feature").build()
 logger.logRecordBuilder()
     .setSeverity(Severity.INFO)
     .setBody("playback_started")
