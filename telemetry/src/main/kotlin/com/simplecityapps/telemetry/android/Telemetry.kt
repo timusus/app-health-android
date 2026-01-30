@@ -23,8 +23,8 @@ object Telemetry {
     private val initialized = AtomicBoolean(false)
     private val configRef = AtomicReference<OtelConfig?>(null)
     private val sessionManagerRef = AtomicReference<SessionManager?>(null)
-    private val startupTracerRef = AtomicReference<Any?>(null)
-    private val navigationTrackerRef = AtomicReference<Any?>(null)
+    private val startupTracerRef = AtomicReference<StartupTracer?>(null)
+    private val navigationTrackerRef = AtomicReference<NavigationTracker?>(null)
 
     private val telemetryExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "telemetry-worker").apply { isDaemon = true }
@@ -76,7 +76,45 @@ object Telemetry {
     }
 
     private fun initializeCollectors(application: Application) {
-        // Collectors will be wired up in Task 15
+        val config = configRef.get() ?: return
+        val sessionManager = sessionManagerRef.get() ?: return
+        val logger = config.logger
+
+        // 1. JVM Crash Handler
+        CrashHandler.install(logger)
+
+        // 2. Coroutine Exception Handler
+        TelemetryCoroutineExceptionHandler.getInstance().setLogger(logger)
+
+        // 3. ANR Watchdog
+        val anrWatchdog = AnrWatchdog(logger)
+        anrWatchdog.start()
+        AnrWatchdog.checkHistoricalAnrs(application, logger)
+
+        // 4. Startup Tracer
+        val startupTracer = StartupTracer.create(config.tracer)
+        startupTracerRef.set(startupTracer)
+        application.registerActivityLifecycleCallbacks(startupTracer)
+
+        // 5. Lifecycle Tracker
+        LifecycleTracker.register(logger, sessionManager, config)
+
+        // 6. Jank Tracker
+        val jankTracker = JankTracker(config.meter, telemetryScope)
+        application.registerActivityLifecycleCallbacks(jankTracker)
+        jankTracker.start()
+
+        // 7. Navigation Tracker
+        val navigationTracker = NavigationTracker(config.tracer)
+        navigationTrackerRef.set(navigationTracker)
+
+        // 8. NDK Crash Handler (wrapped in try-catch for UnsatisfiedLinkError)
+        try {
+            val ndkCrashHandler = NdkCrashHandler(application, logger)
+            ndkCrashHandler.initialize()
+        } catch (e: UnsatisfiedLinkError) {
+            android.util.Log.w(TAG, "Native library not available, NDK crash handling disabled", e)
+        }
     }
 
     fun startSpan(name: String): Span {
@@ -122,11 +160,11 @@ object Telemetry {
     }
 
     fun reportFullyDrawn() {
-        // Will be connected to StartupTracer in Task 15
+        startupTracerRef.get()?.reportFullyDrawn()
     }
 
     suspend fun trackNavigation(navController: NavController) {
-        // Will be connected to NavigationTracker in Task 15
+        navigationTrackerRef.get()?.track(navController)
     }
 
     fun okHttpInterceptor(): Interceptor {
@@ -149,17 +187,17 @@ object Telemetry {
 
     internal fun getUrlSanitizer(): ((String) -> String)? = urlSanitizer
 
-    internal fun setStartupTracer(tracer: Any?) {
+    internal fun setStartupTracer(tracer: StartupTracer?) {
         startupTracerRef.set(tracer)
     }
 
-    internal fun getStartupTracer(): Any? = startupTracerRef.get()
+    internal fun getStartupTracer(): StartupTracer? = startupTracerRef.get()
 
-    internal fun setNavigationTracker(tracker: Any?) {
+    internal fun setNavigationTracker(tracker: NavigationTracker?) {
         navigationTrackerRef.set(tracker)
     }
 
-    internal fun getNavigationTracker(): Any? = navigationTrackerRef.get()
+    internal fun getNavigationTracker(): NavigationTracker? = navigationTrackerRef.get()
 
     private fun addUserAttributes(spanBuilder: io.opentelemetry.api.trace.SpanBuilder) {
         val session = sessionManagerRef.get() ?: return
