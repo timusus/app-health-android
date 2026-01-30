@@ -22,7 +22,6 @@ apphealth/src/test/kotlin/
     fakes/
       FakeSharedPreferences.kt    # In-memory SharedPreferences
       InMemoryTelemetry.kt        # Wraps OTel SDK testing exporters
-    SessionManagerTest.kt
     CrashHandlerTest.kt
     ...
 
@@ -70,10 +69,8 @@ In-memory implementation for testing persistence:
 
 ```kotlin
 val prefs = FakeSharedPreferences()
-prefs.edit().putString("session_id", "abc-123").apply()
-
-val manager = SessionManager(contextWithFakePrefs)
-assertEquals("abc-123", manager.sessionId)
+prefs.edit().putString("key", "value").apply()
+assertEquals("value", prefs.getString("key", null))
 ```
 
 ### MockOtlpCollector
@@ -97,8 +94,7 @@ assertTrue(collector.awaitSpans(timeoutSeconds = 30))
 
 | Component | Unit Test | E2E Test |
 |-----------|-----------|----------|
-| Session Management | ✓ `SessionManagerTest` | - |
-| JVM Crash Handler | ✓ `CrashHandlerTest` | ✓ `CrashHandlerE2ETest` |
+| JVM Crash Handler | ✓ `CrashHandlerTest` | - |
 | Coroutine Exception Handler | ✓ `CoroutineExceptionHandlerTest` | - |
 | ANR Watchdog | ✓ `AnrWatchdogTest` | - |
 | Network Interceptor | ✓ `NetworkInterceptorTest` | ✓ `NetworkInterceptorE2ETest` |

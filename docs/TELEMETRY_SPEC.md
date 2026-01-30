@@ -23,7 +23,6 @@ This document specifies all telemetry emitted by the App Health Android SDK, fol
   - [ANR Logs](#anr-logs)
   - [Lifecycle Events](#lifecycle-events)
   - [Custom Events](#custom-events)
-- [Session Management](#session-management)
 - [Export Configuration](#export-configuration)
 
 ---
@@ -67,12 +66,8 @@ All telemetry signals include these resource attributes:
 |-----------|------|-------------------|-------------|---------|
 | `app.version` | string | Required | Application version name from PackageManager | `"1.0.0"` |
 | `app.version.code` | long | Required | Application version code from PackageManager | `42` |
-| `session.id` | string | Required | UUID identifying the current user session | `"550e8400-e29b-41d4-a716-446655440000"` |
-| `device.installation.id` | string | Optional | Random UUID for device correlation. Persists until app uninstall. Can be disabled via `installationIdEnabled = false` for GDPR compliance. | `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"` |
 
-### Custom Instrumentation
-
-AppHealth automatically adds `session.id` to all spans and logs created through the OpenTelemetry SDK you provide. For custom instrumentation, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/languages/java/).
+**Note**: Resource attributes are set by the app when configuring OpenTelemetry, not by AppHealth. AppHealth is pure instrumentation - it emits spans, logs, and metrics to the app-provided OpenTelemetry SDK.
 
 ---
 
@@ -353,27 +348,6 @@ Reported every 30 seconds per activity.
 
 ---
 
-## Session Management
-
-### Session Lifecycle
-
-| State | Behavior |
-|-------|----------|
-| Cold Start | New UUID generated and persisted to SharedPreferences |
-| Foreground Resume | Existing session continues if < 30 minutes since background |
-| Session Timeout | New UUID generated if > 30 minutes since last foreground |
-
-**Session Timeout**: 30 minutes (1,800,000ms)
-
-### Session ID
-
-- Format: UUID v4
-- Storage: SharedPreferences (`telemetry_session`)
-- Key: `session_id`
-- Attached to all telemetry as resource attribute `session.id`
-
----
-
 ## Export Configuration
 
 ### Endpoints
@@ -421,9 +395,6 @@ const val DEFAULT_ANR_CHECK_INTERVAL_MS = 1000L
 const val FRAME_REPORT_INTERVAL_MS = 30_000L
 const val SLOW_FRAME_THRESHOLD_MS = 16
 const val FROZEN_FRAME_THRESHOLD_MS = 700
-
-// Session
-const val SESSION_TIMEOUT_MS = 30 * 60 * 1000L  // 30 minutes
 ```
 
 ---
@@ -448,8 +419,6 @@ The following attributes are SDK-specific extensions:
 
 | Attribute | Description |
 |-----------|-------------|
-| `session.id` | User session identifier (UUID) |
-| `device.installation.id` | Persistent device identifier (UUID), opt-out via `installationIdEnabled = false` |
 | `app.version`, `app.version.code` | Application version info |
 | `crash.type` | Crash categorization (`jvm`, `coroutine`, `native`) |
 | `startup.type`, `startup.duration_ms`, `startup.fully_drawn` | Startup metrics |
@@ -457,5 +426,5 @@ The following attributes are SDK-specific extensions:
 | `anr.main_thread.stacktrace`, `anr.other_threads.stacktraces` | ANR diagnostics |
 | `coroutine.name`, `coroutine.cancelled` | Coroutine crash context |
 | `screen.name` | Navigation/jank tracking |
-| `app.foreground.duration_ms` | Foreground session duration |
-| `event.name` | Lifecycle and custom event identifier |
+| `app.foreground.duration_ms` | Foreground duration in milliseconds |
+| `event.name` | Lifecycle event identifier |
