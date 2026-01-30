@@ -144,40 +144,9 @@ AppHealth.awaitReady(timeoutMs = 5000)
 AppHealth.forceFlush()
 ```
 
-## Privacy & GDPR
+## Privacy
 
-The SDK collects only technical data required for crash reporting and performance monitoring. No personal data is collected.
-
-### Data Collected
-
-| Attribute | Purpose | Persistence |
-|-----------|---------|-------------|
-| `device.installation.id` | Correlate telemetry from same device | Persists until app uninstall |
-| `device.model.name` | Device context for debugging | N/A |
-| `device.manufacturer` | Device context for debugging | N/A |
-| `os.version` | OS context for debugging | N/A |
-| `app.version` | App version for debugging | N/A |
-
-### Installation ID
-
-The installation ID is a **random UUID** that allows you to distinguish "100 crashes from 1 device" vs "100 crashes from 100 devices". It is:
-
-- **Not derived from hardware** — No IMEI, SSAID, MAC address, or Advertising ID
-- **App-scoped** — Stored in app-private SharedPreferences, not shared across apps
-- **Deleted on uninstall** — No persistent tracking
-- **Opt-out available** — Disable with `installationIdEnabled = false`
-
-### GDPR Compliance
-
-To disable the installation ID for GDPR compliance:
-
-```kotlin
-AppHealth.init(context, openTelemetry) {
-    installationIdEnabled = false
-}
-```
-
-When disabled, the `device.installation.id` attribute is omitted from all telemetry.
+The SDK collects only technical data required for crash reporting and performance monitoring. No personal data is collected. No device identifiers are generated or stored.
 
 ## Requirements
 

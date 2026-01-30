@@ -14,7 +14,6 @@ import java.util.concurrent.TimeUnit
 
 internal class LifecycleTracker(
     private val logger: Logger,
-    private val sessionManager: SessionManager,
     private val openTelemetry: OpenTelemetry?
 ) : DefaultLifecycleObserver {
 
@@ -48,15 +47,11 @@ internal class LifecycleTracker(
     }
 
     private fun onForeground() {
-        sessionManager.onForeground()
-
         emitLifecycleEvent("app.foreground", emptyMap())
     }
 
     private fun onBackground() {
         val foregroundDurationMs = System.currentTimeMillis() - foregroundStartTime
-
-        sessionManager.onBackground()
 
         emitLifecycleEvent(
             "app.background",
@@ -96,10 +91,9 @@ internal class LifecycleTracker(
     companion object {
         fun register(
             logger: Logger,
-            sessionManager: SessionManager,
             openTelemetry: OpenTelemetry?
         ): LifecycleTracker {
-            val tracker = LifecycleTracker(logger, sessionManager, openTelemetry)
+            val tracker = LifecycleTracker(logger, openTelemetry)
             ProcessLifecycleOwner.get().lifecycle.addObserver(tracker)
             return tracker
         }

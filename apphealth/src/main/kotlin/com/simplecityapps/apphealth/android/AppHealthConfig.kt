@@ -6,7 +6,7 @@ package com.simplecityapps.apphealth.android
  * All collectors are enabled by default. Use the DSL to disable specific features:
  *
  * ```kotlin
- * AppHealth.init(context, endpoint, serviceName) {
+ * AppHealth.init(context, openTelemetry) {
  *     anrDetection = false
  *     ndkCrashHandling = false
  * }
@@ -56,24 +56,6 @@ class AppHealthConfig internal constructor() {
      * Default: true
      */
     var jankTracking: Boolean = true
-
-    /**
-     * Generate and include a persistent installation ID in telemetry.
-     *
-     * The installation ID is a random UUID generated on first app launch and stored
-     * in SharedPreferences. It allows correlating telemetry from the same device
-     * across sessions (e.g., distinguishing "100 crashes from 1 device" vs "100 devices").
-     *
-     * **Privacy considerations:**
-     * - The ID is a random UUID, not derived from hardware identifiers
-     * - It is stored only in app-private SharedPreferences
-     * - It is deleted when the app is uninstalled
-     * - It is not shared with other apps
-     *
-     * Set to `false` to disable for GDPR compliance or if device correlation is not needed.
-     * Default: true
-     */
-    var installationIdEnabled: Boolean = true
 
     /**
      * Custom URL sanitizer for network spans.

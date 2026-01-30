@@ -178,35 +178,6 @@ class AppHealthTest {
     }
 
     @Test
-    fun `installation ID is enabled by default`() {
-        var configCaptured: AppHealthConfig? = null
-
-        AppHealth.init(
-            context = application,
-            openTelemetry = telemetry.openTelemetry
-        ) {
-            configCaptured = this
-        }
-
-        assertTrue(configCaptured!!.installationIdEnabled)
-    }
-
-    @Test
-    fun `installation ID can be disabled for GDPR compliance`() {
-        var configCaptured: AppHealthConfig? = null
-
-        AppHealth.init(
-            context = application,
-            openTelemetry = telemetry.openTelemetry
-        ) {
-            installationIdEnabled = false
-            configCaptured = this
-        }
-
-        assertFalse(configCaptured!!.installationIdEnabled)
-    }
-
-    @Test
     fun `forceFlush returns true when SDK is ready`() {
         AppHealth.init(
             context = application,

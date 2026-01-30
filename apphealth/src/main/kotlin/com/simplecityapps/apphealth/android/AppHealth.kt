@@ -68,7 +68,6 @@ object AppHealth {
     @Volatile private var _tracer: Tracer? = null
     @Volatile private var _logger: Logger? = null
     @Volatile private var _meter: Meter? = null
-    @Volatile private var sessionManager: SessionManager? = null
     @Volatile private var startupTracer: StartupTracer? = null
     @Volatile private var navigationTracker: NavigationTracker? = null
     @Volatile private var ndkCrashHandler: NdkCrashHandler? = null
@@ -122,9 +121,6 @@ object AppHealth {
             try {
                 _openTelemetry = openTelemetry
 
-                val newSessionManager = SessionManager(appContext)
-                sessionManager = newSessionManager
-
                 // Get tracer/logger/meter from app-provided OpenTelemetry
                 val tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION)
                 val logger = openTelemetry.logsBridge.loggerBuilder(INSTRUMENTATION_NAME).build()
@@ -140,7 +136,6 @@ object AppHealth {
                     logger,
                     meter,
                     openTelemetry,
-                    newSessionManager,
                     userConfig
                 )
             } catch (e: Exception) {
@@ -168,7 +163,6 @@ object AppHealth {
         logger: Logger,
         meter: Meter,
         openTelemetry: OpenTelemetry,
-        sessionManager: SessionManager,
         userConfig: AppHealthConfig
     ) {
         // 1. JVM Crash Handler
@@ -197,7 +191,7 @@ object AppHealth {
 
         // 5. Lifecycle Tracker
         if (userConfig.lifecycleTracking) {
-            LifecycleTracker.register(logger, sessionManager, openTelemetry)
+            LifecycleTracker.register(logger, openTelemetry)
         }
 
         // 6. Jank Tracker
@@ -292,7 +286,6 @@ object AppHealth {
     internal fun getTracer(): Tracer? = _tracer
     internal fun getLogger(): Logger? = _logger
     internal fun getMeter(): Meter? = _meter
-    internal fun getSessionManager(): SessionManager? = sessionManager
     internal fun getAppHealthScope(): CoroutineScope = appHealthScope
     internal fun setStartupTracer(tracer: StartupTracer?) { startupTracer = tracer }
     internal fun getStartupTracer(): StartupTracer? = startupTracer
@@ -335,7 +328,6 @@ object AppHealth {
         _tracer = null
         _logger = null
         _meter = null
-        sessionManager = null
         startupTracer = null
         navigationTracker = null
         ndkCrashHandler = null
