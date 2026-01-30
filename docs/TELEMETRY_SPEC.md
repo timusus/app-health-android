@@ -72,11 +72,13 @@ All telemetry signals include these resource attributes:
 
 ### Custom Attributes via OpenTelemetry
 
-For custom spans, events, and attributes, use the shared OpenTelemetry instance:
+For custom spans, events, and attributes, use the app-provided OpenTelemetry SDK:
 
 ```kotlin
-val tracer = AppHealth.openTelemetry.getTracer("my-feature")
+// Use the same SDK you passed to AppHealth.init()
+val tracer = otelSdk.getTracer("my-feature")
 val span = tracer.spanBuilder("custom-operation").startSpan()
+// AppHealth automatically adds session.id to all spans
 ```
 
 ---
@@ -184,7 +186,7 @@ Create custom spans using the shared OpenTelemetry instance:
 
 **Example**:
 ```kotlin
-val tracer = AppHealth.openTelemetry.getTracer("my-feature")
+val tracer = otelSdk.getTracer("my-feature")
 val span = tracer.spanBuilder("load_podcast_list").startSpan()
 try {
     // ... perform work ...
@@ -387,7 +389,7 @@ Create custom log events using the shared OpenTelemetry instance:
 
 **Example**:
 ```kotlin
-val logger = AppHealth.openTelemetry.logsBridge.loggerBuilder("my-feature").build()
+val logger = otelSdk.logsBridge.loggerBuilder("my-feature").build()
 logger.logRecordBuilder()
     .setSeverity(Severity.INFO)
     .setBody("playback_started")
