@@ -6,6 +6,7 @@ import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.logs.Severity
 import java.io.PrintWriter
 import java.io.StringWriter
+import kotlin.coroutines.CoroutineContext
 
 internal class CrashHandler(
     private val logger: Logger,
@@ -48,6 +49,59 @@ internal class CrashHandler(
             val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
             val handler = CrashHandler(logger, previousHandler)
             Thread.setDefaultUncaughtExceptionHandler(handler)
+        }
+    }
+}
+
+class TelemetryCoroutineExceptionHandler : kotlinx.coroutines.CoroutineExceptionHandler {
+
+    @Volatile
+    private var logger: Logger? = null
+
+    override val key: CoroutineContext.Key<*> = kotlinx.coroutines.CoroutineExceptionHandler
+
+    fun setLogger(logger: Logger) {
+        this.logger = logger
+    }
+
+    override fun handleException(context: CoroutineContext, exception: Throwable) {
+        val log = logger ?: return
+
+        try {
+            val stackTrace = StringWriter().also { sw ->
+                exception.printStackTrace(PrintWriter(sw))
+            }.toString()
+
+            val coroutineName = context[kotlinx.coroutines.CoroutineName]?.name ?: "unknown"
+            val job = context[kotlinx.coroutines.Job]
+
+            val attributes = Attributes.builder()
+                .put(AttributeKey.stringKey("exception.type"), exception.javaClass.name)
+                .put(AttributeKey.stringKey("exception.message"), exception.message ?: "")
+                .put(AttributeKey.stringKey("exception.stacktrace"), stackTrace)
+                .put(AttributeKey.stringKey("coroutine.name"), coroutineName)
+                .put(AttributeKey.booleanKey("coroutine.cancelled"), job?.isCancelled ?: false)
+                .put(AttributeKey.stringKey("crash.type"), "coroutine")
+                .build()
+
+            log.logRecordBuilder()
+                .setSeverity(Severity.ERROR)
+                .setBody("Coroutine Crash: ${exception.javaClass.simpleName}: ${exception.message}")
+                .setAllAttributes(attributes)
+                .emit()
+        } catch (e: Exception) {
+            // Never crash while handling a crash
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var instance: TelemetryCoroutineExceptionHandler? = null
+
+        fun getInstance(): TelemetryCoroutineExceptionHandler {
+            return instance ?: synchronized(this) {
+                instance ?: TelemetryCoroutineExceptionHandler().also { instance = it }
+            }
         }
     }
 }
