@@ -1,7 +1,11 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
+    id("com.vanniktech.maven.publish")
 }
+
+group = "com.simplecityapps"
+version = "0.1.0"
 
 android {
     namespace = "com.simplecityapps.apphealth.android"
@@ -35,8 +39,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        jvmToolchain(17)
     }
 
     externalNativeBuild {
@@ -74,4 +78,36 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("io.opentelemetry:opentelemetry-sdk-testing:1.32.0")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
+}
+
+mavenPublishing {
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
+
+    pom {
+        name.set("App Health Android")
+        description.set("Android SDK for crash handling, performance metrics, and telemetry built on OpenTelemetry")
+        url.set("https://github.com/timusus/app-health-android")
+
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+            }
+        }
+
+        developers {
+            developer {
+                id.set("timusus")
+                name.set("Tim Malseed")
+                email.set("t.malseed@gmail.com")
+            }
+        }
+
+        scm {
+            url.set("https://github.com/timusus/app-health-android")
+            connection.set("scm:git:git://github.com/timusus/app-health-android.git")
+            developerConnection.set("scm:git:ssh://git@github.com/timusus/app-health-android.git")
+        }
+    }
 }
