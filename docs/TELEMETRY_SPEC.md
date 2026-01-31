@@ -120,7 +120,6 @@ Captures outbound HTTP requests via OkHttp interceptor.
 |-----------|------|-------------------|-------------|---------|
 | `http.request.method` | string | Required | HTTP request method | `"GET"` |
 | `url.full` | string | Required | Sanitized request URL (IDs replaced with `{id}`, query params stripped) | `"https://api.example.com/users/{id}"` |
-| `url.path` | string | Required | URL path only, encoded | `"/users/123"` |
 | `server.address` | string | Required | Host name of the request target | `"api.example.com"` |
 | `server.port` | long | Required | Port number of the request target | `443` |
 | `http.response.status_code` | long | Conditionally Required | HTTP response status code. Required if response received. | `200` |
@@ -136,6 +135,16 @@ Captures outbound HTTP requests via OkHttp interceptor.
 - `exception.type`: Exception class name
 - `exception.message`: Exception message
 - `exception.stacktrace`: Full stack trace
+
+**Trace Context Propagation**:
+
+When enabled (default), the interceptor injects W3C Trace Context headers into outgoing requests:
+- `traceparent`: Contains trace ID, span ID, and trace flags (format: `00-{trace_id}-{span_id}-{flags}`)
+- `tracestate`: Vendor-specific trace information (if configured)
+
+This enables distributed tracing by connecting Android client spans to backend service spans. Requires propagators to be configured on the OpenTelemetry SDK (e.g., `W3CTraceContextPropagator`).
+
+Disable via `networkConfig { traceContextPropagation = false }`.
 
 **URL Sanitization Rules**:
 1. UUIDs are replaced with `{id}`
@@ -405,7 +414,7 @@ This SDK follows OpenTelemetry semantic conventions:
 
 | Convention | Status | Notes |
 |------------|--------|-------|
-| [HTTP Client Spans](https://opentelemetry.io/docs/specs/semconv/http/http-spans/) | Full | Uses `http.request.method`, `http.response.status_code`, `url.full`, `url.path`, `server.address`, `server.port` |
+| [HTTP Client Spans](https://opentelemetry.io/docs/specs/semconv/http/http-spans/) | Full | Uses `http.request.method`, `http.response.status_code`, `url.full`, `server.address`, `server.port` |
 | [Exception Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/) | Full | Uses `exception.type`, `exception.message`, `exception.stacktrace` |
 | [Thread Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/thread/) | Full | Uses `thread.name`, `thread.id` |
 | [Device Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/device/) | Full | Uses `device.model.name`, `device.manufacturer` |
