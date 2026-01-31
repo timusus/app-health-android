@@ -1,8 +1,9 @@
 name: Publish to Maven Central
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   publish:
@@ -22,7 +23,7 @@ jobs:
       - name: Publish to Maven Central
         run: |
           export ORG_GRADLE_PROJECT_signingInMemoryKey="$(echo "$GPG_KEY_BASE64" | base64 -d)"
-          ./gradlew publishToMavenCentral --no-configuration-cache
+          ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
         env:
           GPG_KEY_BASE64: ${{ secrets.GPG_KEY_BASE64 }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}

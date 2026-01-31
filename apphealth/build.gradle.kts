@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.simplecityapps"
-version = "0.1.1"
+version = "0.1.0"
 
 android {
     namespace = "com.simplecityapps.apphealth.android"
@@ -102,6 +102,7 @@ if (signingKey != null) {
 }
 
 mavenPublishing {
+    coordinates("com.simplecityapps", "app-health-android", version.toString())
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
     if (signingKey != null) {
         signAllPublications()
