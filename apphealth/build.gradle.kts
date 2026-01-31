@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -5,7 +7,7 @@ plugins {
 }
 
 group = "com.simplecityapps"
-version = "0.1.0"
+version = "0.1.1"
 
 android {
     namespace = "com.simplecityapps.apphealth.android"
@@ -80,9 +82,30 @@ dependencies {
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
+// GPG signing key - accepts either ASCII-armored or base64-encoded format
+val signingKeyRaw: String? = System.getenv("ORG_GRADLE_PROJECT_signingInMemoryKey")
+    ?: providers.gradleProperty("signingInMemoryKey").orNull
+
+fun decodeSigningKey(raw: String): String? {
+    if (raw.startsWith("-----BEGIN PGP")) return raw
+    return try {
+        val decoded = String(Base64.getDecoder().decode(raw))
+        if (decoded.startsWith("-----BEGIN PGP")) decoded else null
+    } catch (_: Exception) { null }
+}
+
+val signingKey: String? = signingKeyRaw?.let { decodeSigningKey(it) }
+
+// Set decoded key for the maven-publish plugin to use
+if (signingKey != null) {
+    ext.set("signingInMemoryKey", signingKey)
+}
+
 mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
-    signAllPublications()
+    if (signingKey != null) {
+        signAllPublications()
+    }
 
     pom {
         name.set("App Health Android")
