@@ -166,7 +166,7 @@ object AppHealth {
 
         // 2. Coroutine Exception Handler
         if (userConfig.coroutineCrashHandling) {
-            AppHealthCoroutineExceptionHandler.getInstance().setLogger(logger)
+            AppHealthCoroutineExceptionHandler.getInstance().setCrashStorage(crashStorage)
         }
 
         // 3. ANR Watchdog
