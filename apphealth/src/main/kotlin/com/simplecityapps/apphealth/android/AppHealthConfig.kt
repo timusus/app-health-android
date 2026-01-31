@@ -64,39 +64,41 @@ class AppHealthConfig internal constructor() {
     var urlSanitizer: ((String) -> String)? = null
 
     /**
-     * Network request sampling configuration.
-     * By default, all requests are captured (with error rate limiting).
+     * Network tracing configuration.
      */
-    val networkSampling: NetworkSamplingConfig = NetworkSamplingConfig()
+    val networkConfig: NetworkConfig = NetworkConfig()
 
     /**
-     * Configure network request sampling.
+     * Configure network tracing.
      */
-    fun networkSampling(configure: NetworkSamplingConfig.() -> Unit) {
-        networkSampling.apply(configure)
+    fun networkConfig(configure: NetworkConfig.() -> Unit) {
+        networkConfig.apply(configure)
     }
 }
 
 /**
- * Configuration for network request sampling.
- *
- * Allows controlling the volume of network telemetry to prevent overwhelming backends.
+ * Configuration for network tracing.
  */
-class NetworkSamplingConfig internal constructor() {
+class NetworkConfig internal constructor() {
 
     /**
-     * Sample rate for successful HTTP requests (2xx/3xx).
+     * Sample rate for HTTP requests.
      * 1.0 = capture all, 0.1 = capture 10%, 0.0 = capture none.
      * Default: 1.0 (capture all)
+     *
+     * For error-specific sampling, configure a custom Sampler on your OpenTelemetry SDK.
      */
-    var successSampleRate: Double = 1.0
+    var sampleRate: Double = 1.0
         set(value) { field = value.coerceIn(0.0, 1.0) }
 
     /**
-     * Maximum error spans per minute.
-     * Prevents flooding telemetry backend during outages.
-     * Default: 10 per minute
+     * Enable W3C Trace Context propagation (traceparent/tracestate headers).
+     *
+     * When enabled, the interceptor injects trace context headers into outgoing
+     * requests, allowing backend services to correlate their traces with the
+     * Android client. Requires propagators to be configured on the OpenTelemetry SDK.
+     *
+     * Default: true
      */
-    var maxErrorsPerMinute: Int = 10
-        set(value) { field = value.coerceAtLeast(0) }
+    var traceContextPropagation: Boolean = true
 }

@@ -51,6 +51,21 @@ Required secrets:
 
 ## Publishing
 
-**Manual:** `./gradlew publishToMavenCentral --no-configuration-cache`
+**Local testing (no signing):**
+```bash
+./gradlew publishToMavenLocal
+```
 
-**Automated:** Create GitHub release → workflow publishes automatically
+**CI/CD (with signing):** Create GitHub release → workflow publishes automatically
+
+**Manual with signing (rare):**
+```bash
+export ORG_GRADLE_PROJECT_signingInMemoryKey="$(cat ~/.gradle/signing-key.asc)"
+export ORG_GRADLE_PROJECT_signingInMemoryKeyId="8AA6B3D9"
+export ORG_GRADLE_PROJECT_signingInMemoryKeyPassword="your-passphrase"
+./gradlew publishToMavenCentral --no-configuration-cache
+```
+
+## Note on Signing
+
+Signing is automatically skipped for local publishing. The build detects whether a valid ASCII-armored GPG key is available and only signs when one is present. CI/CD decodes the base64-stored key before passing it to Gradle.

@@ -260,12 +260,16 @@ object AppHealth {
      * URLs are automatically sanitized (IDs, UUIDs, query params stripped).
      * Configure a custom sanitizer via [AppHealthConfig.urlSanitizer].
      *
+     * Trace context (W3C traceparent/tracestate headers) is automatically injected
+     * if propagators are configured on the OpenTelemetry SDK.
+     *
      * @return An OkHttp [Interceptor] for network tracing
      */
     fun okHttpInterceptor(): Interceptor {
         return NetworkInterceptor(
             urlSanitizerProvider = { appHealthConfig?.urlSanitizer },
-            samplingConfigProvider = { appHealthConfig?.networkSampling },
+            samplingConfigProvider = { appHealthConfig?.networkConfig },
+            textMapPropagatorProvider = { _openTelemetry?.propagators?.textMapPropagator },
             tracerProvider = { _tracer }
         )
     }

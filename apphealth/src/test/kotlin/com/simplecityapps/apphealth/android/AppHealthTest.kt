@@ -148,16 +148,16 @@ class AppHealthTest {
             context = application,
             openTelemetry = telemetry.openTelemetry
         ) {
-            networkSampling {
-                successSampleRate = 0.5
-                maxErrorsPerMinute = 20
+            networkConfig {
+                sampleRate = 0.5
+                traceContextPropagation = false
             }
             configCaptured = this
         }
 
         assertNotNull(configCaptured)
-        assertEquals(0.5, configCaptured!!.networkSampling.successSampleRate)
-        assertEquals(20, configCaptured!!.networkSampling.maxErrorsPerMinute)
+        assertEquals(0.5, configCaptured!!.networkConfig.sampleRate)
+        assertFalse(configCaptured!!.networkConfig.traceContextPropagation)
     }
 
     @Test

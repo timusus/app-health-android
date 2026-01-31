@@ -4,6 +4,7 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.context.propagation.ContextPropagators
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.logs.SdkLoggerProvider
 import io.opentelemetry.sdk.logs.data.LogRecordData
@@ -20,8 +21,12 @@ import io.opentelemetry.sdk.trace.data.SpanData
  * Captures all emitted logs and spans for assertion.
  *
  * Provides an [OpenTelemetry] instance that can be passed to [AppHealth.init].
+ *
+ * @param propagators Optional context propagators for trace context injection
  */
-class InMemoryTelemetry {
+class InMemoryTelemetry(
+    propagators: ContextPropagators = ContextPropagators.noop()
+) {
 
     private val logExporter = InMemoryLogRecordExporter.create()
     private val spanExporter = InMemorySpanExporter.create()
@@ -44,6 +49,7 @@ class InMemoryTelemetry {
         .setTracerProvider(tracerProvider)
         .setLoggerProvider(loggerProvider)
         .setMeterProvider(meterProvider)
+        .setPropagators(propagators)
         .build()
 
     val logger: Logger = loggerProvider.get("test")
