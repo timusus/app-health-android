@@ -158,47 +158,56 @@ object AppHealth {
         openTelemetry: OpenTelemetry,
         userConfig: AppHealthConfig
     ) {
-        // 1. JVM Crash Handler
+        // 1. Create crash storage and reporter
         val crashStorage = CrashStorage(application.noBackupFilesDir)
+        val crashReporter = CrashReporter(logger)
+
+        // 2. Report any crashes from previous session FIRST (before installing new handlers)
+        crashReporter.checkAndReportCrashes(
+            jvmCrashFile = java.io.File(application.noBackupFilesDir, "jvm_crash.txt"),
+            coroutineCrashFile = java.io.File(application.noBackupFilesDir, "coroutine_crash.txt")
+        )
+
+        // 3. JVM Crash Handler
         if (userConfig.crashHandling) {
             CrashHandler.install(crashStorage)
         }
 
-        // 2. Coroutine Exception Handler
+        // 4. Coroutine Exception Handler
         if (userConfig.coroutineCrashHandling) {
             AppHealthCoroutineExceptionHandler.getInstance().setCrashStorage(crashStorage)
         }
 
-        // 3. ANR Watchdog
+        // 5. ANR Watchdog
         if (userConfig.anrDetection) {
             val anrWatchdog = AnrWatchdog(logger)
             anrWatchdog.start()
             AnrWatchdog.checkHistoricalAnrs(application, logger)
         }
 
-        // 4. Startup Tracer
+        // 6. Startup Tracer
         if (userConfig.startupTracking) {
             val newStartupTracer = StartupTracer(tracer)
             startupTracer = newStartupTracer
             application.registerActivityLifecycleCallbacks(newStartupTracer)
         }
 
-        // 5. Lifecycle Tracker
+        // 7. Lifecycle Tracker
         if (userConfig.lifecycleTracking) {
             LifecycleTracker.register(logger, openTelemetry)
         }
 
-        // 6. Jank Tracker
+        // 8. Jank Tracker
         if (userConfig.jankTracking) {
             val jankTracker = JankTracker(meter, appHealthScope)
             application.registerActivityLifecycleCallbacks(jankTracker)
             jankTracker.start()
         }
 
-        // 7. Navigation Tracker (always created, requires manual setup via trackNavigation)
+        // 9. Navigation Tracker (always created, requires manual setup via trackNavigation)
         navigationTracker = NavigationTracker(tracer)
 
-        // 8. NDK Crash Handler
+        // 10. NDK Crash Handler
         if (userConfig.ndkCrashHandling) {
             try {
                 val handler = NdkCrashHandler(application, logger)
