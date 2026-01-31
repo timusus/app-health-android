@@ -83,13 +83,22 @@ val client = OkHttpClient.Builder()
 
 URLs are automatically sanitized (IDs, UUIDs, query params stripped).
 
-**Sampling** — For high-traffic apps, reduce telemetry volume:
+**Distributed Tracing** — Trace context is automatically propagated to backend services via W3C `traceparent` headers, enabling end-to-end traces from mobile to backend. Configure propagators on your OpenTelemetry SDK:
+
+```kotlin
+val openTelemetry = OpenTelemetrySdk.builder()
+    .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
+    // ... other config
+    .build()
+```
+
+**Network Config** — Configure sampling and trace propagation:
 
 ```kotlin
 AppHealth.init(context, openTelemetry) {
-    networkSampling {
-        successSampleRate = 0.1   // Sample 10% of successful requests
-        maxErrorsPerMinute = 10   // Cap errors during outages (default: 10)
+    networkConfig {
+        sampleRate = 0.1              // Sample 10% of requests (default: 1.0)
+        traceContextPropagation = true // Inject traceparent headers (default: true)
     }
 }
 ```
