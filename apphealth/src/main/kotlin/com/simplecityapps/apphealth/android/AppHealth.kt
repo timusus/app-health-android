@@ -159,8 +159,9 @@ object AppHealth {
         userConfig: AppHealthConfig
     ) {
         // 1. JVM Crash Handler
+        val crashStorage = CrashStorage(application.noBackupFilesDir)
         if (userConfig.crashHandling) {
-            CrashHandler.install(logger)
+            CrashHandler.install(crashStorage)
         }
 
         // 2. Coroutine Exception Handler

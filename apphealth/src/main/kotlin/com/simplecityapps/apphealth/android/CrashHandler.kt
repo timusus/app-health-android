@@ -7,13 +7,13 @@ import io.opentelemetry.api.logs.Severity
 import kotlin.coroutines.CoroutineContext
 
 internal class CrashHandler(
-    private val logger: Logger,
+    private val crashStorage: CrashStorage,
     private val previousHandler: Thread.UncaughtExceptionHandler?
 ) : Thread.UncaughtExceptionHandler {
 
     override fun uncaughtException(thread: Thread, throwable: Throwable) {
         try {
-            emitCrashLog(thread, throwable)
+            crashStorage.writeJvmCrash(thread, throwable)
         } catch (e: Exception) {
             // Never crash while handling a crash
         } finally {
@@ -21,28 +21,10 @@ internal class CrashHandler(
         }
     }
 
-    private fun emitCrashLog(thread: Thread, throwable: Throwable) {
-        val stackTrace = throwable.stackTraceToString()
-        val attributes = Attributes.builder()
-            .put(AttributeKey.stringKey("exception.type"), throwable.javaClass.name)
-            .put(AttributeKey.stringKey("exception.message"), throwable.message ?: "")
-            .put(AttributeKey.stringKey("exception.stacktrace"), stackTrace)
-            .put(AttributeKey.stringKey("thread.name"), thread.name)
-            .put(AttributeKey.longKey("thread.id"), thread.id)
-            .put(AttributeKey.stringKey("crash.type"), "jvm")
-            .build()
-
-        logger.logRecordBuilder()
-            .setSeverity(Severity.ERROR)
-            .setBody("JVM Crash: ${throwable.javaClass.simpleName}: ${throwable.message}")
-            .setAllAttributes(attributes)
-            .emit()
-    }
-
     companion object {
-        fun install(logger: Logger) {
+        fun install(crashStorage: CrashStorage) {
             val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-            val handler = CrashHandler(logger, previousHandler)
+            val handler = CrashHandler(crashStorage, previousHandler)
             Thread.setDefaultUncaughtExceptionHandler(handler)
         }
     }

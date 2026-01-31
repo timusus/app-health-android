@@ -1,82 +1,72 @@
 package com.simplecityapps.apphealth.android
 
-import com.simplecityapps.apphealth.android.fakes.InMemoryTelemetry
-import io.opentelemetry.api.logs.Severity
-import org.junit.After
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
-import kotlin.test.assertEquals
+import org.junit.rules.TemporaryFolder
 import kotlin.test.assertTrue
 
 class CrashHandlerTest {
 
-    private lateinit var telemetry: InMemoryTelemetry
-
-    @Before
-    fun setup() {
-        telemetry = InMemoryTelemetry()
-    }
-
-    @After
-    fun teardown() {
-        telemetry.shutdown()
-    }
+    @get:Rule
+    val tempFolder = TemporaryFolder()
 
     @Test
-    fun `captures exception and emits log with ERROR severity`() {
+    fun `writes crash to storage and chains to previous handler`() {
         var chainedHandlerCalled = false
         val previousHandler = Thread.UncaughtExceptionHandler { _, _ ->
             chainedHandlerCalled = true
         }
 
-        val handler = CrashHandler(telemetry.logger, previousHandler)
+        val storage = CrashStorage(tempFolder.root)
+        val handler = CrashHandler(storage, previousHandler)
         val exception = RuntimeException("Test crash")
 
         handler.uncaughtException(Thread.currentThread(), exception)
 
-        val logs = telemetry.getLogRecords()
-        assertEquals(1, logs.size)
-        assertEquals(Severity.ERROR, logs[0].severity)
-        assertTrue(logs[0].body.asString().contains("RuntimeException"))
+        val crashFile = tempFolder.root.resolve("jvm_crash.txt")
+        assertTrue(crashFile.exists())
+        val content = crashFile.readText()
+        assertTrue(content.contains("java.lang.RuntimeException"))
+        assertTrue(content.contains("Test crash"))
         assertTrue(chainedHandlerCalled, "Should chain to previous handler")
     }
 
     @Test
-    fun `includes thread name in log attributes`() {
-        val handler = CrashHandler(telemetry.logger, null)
+    fun `includes thread name in crash file`() {
+        val storage = CrashStorage(tempFolder.root)
+        val handler = CrashHandler(storage, null)
         val exception = RuntimeException("Test crash")
         val thread = Thread("test-thread-name")
 
         handler.uncaughtException(thread, exception)
 
-        val logs = telemetry.getLogRecords()
-        assertEquals(1, logs.size)
-
-        val threadName = logs[0].attributes.get(io.opentelemetry.api.common.AttributeKey.stringKey("thread.name"))
-        assertEquals("test-thread-name", threadName)
+        val content = tempFolder.root.resolve("jvm_crash.txt").readText()
+        assertTrue(content.contains("test-thread-name"))
     }
 
     @Test
-    fun `includes exception stacktrace in log attributes`() {
-        val handler = CrashHandler(telemetry.logger, null)
+    fun `includes exception stacktrace in crash file`() {
+        val storage = CrashStorage(tempFolder.root)
+        val handler = CrashHandler(storage, null)
         val exception = RuntimeException("Test crash")
 
         handler.uncaughtException(Thread.currentThread(), exception)
 
-        val logs = telemetry.getLogRecords()
-        val stacktrace = logs[0].attributes.get(io.opentelemetry.api.common.AttributeKey.stringKey("exception.stacktrace"))
-        assertTrue(stacktrace?.contains("RuntimeException") == true)
-        assertTrue(stacktrace?.contains("Test crash") == true)
+        val content = tempFolder.root.resolve("jvm_crash.txt").readText()
+        assertTrue(content.contains("RuntimeException"))
+        assertTrue(content.contains("Test crash"))
+        assertTrue(content.contains("at "))
     }
 
     @Test
     fun `handles null previous handler gracefully`() {
-        val handler = CrashHandler(telemetry.logger, null)
+        val storage = CrashStorage(tempFolder.root)
+        val handler = CrashHandler(storage, null)
         val exception = RuntimeException("Test crash")
 
         handler.uncaughtException(Thread.currentThread(), exception)
 
-        val logs = telemetry.getLogRecords()
-        assertEquals(1, logs.size)
+        val crashFile = tempFolder.root.resolve("jvm_crash.txt")
+        assertTrue(crashFile.exists())
     }
 }
