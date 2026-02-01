@@ -1,14 +1,12 @@
 # Recipes
 
-This document provides implementation patterns for common telemetry features that are not included in the App Health SDK's core functionality.
+Implementation patterns for common telemetry features not included in the App Health SDK.
 
-The SDK focuses on crash handling (JVM, coroutine, NDK), ANR detection, and session management. For other telemetry needs, use these recipes with your OpenTelemetry SDK directly.
+The SDK focuses on crash handling and ANR detection. For other telemetry, use these patterns with your OpenTelemetry SDK directly.
 
 ## Network Tracing
 
-Use the official `opentelemetry-okhttp-3.0` instrumentation library for HTTP client tracing.
-
-### Setup
+Use the official OpenTelemetry OkHttp instrumentation:
 
 ```kotlin
 dependencies {
@@ -24,25 +22,63 @@ val okHttpClient = OkHttpClient.Builder()
 
 ### URL Sanitization
 
-To reduce cardinality and protect sensitive data, sanitize URLs before they become span attributes:
+The default instrumentation includes full URLs which may contain sensitive data or high-cardinality IDs. To sanitize, add a custom `SpanProcessor`:
 
 ```kotlin
-object UrlSanitizer {
-    private val UUID = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-    private val NUMERIC_ID = Regex("/[0-9]+(?=/|$)")
+class UrlSanitizingSpanProcessor : SpanProcessor {
+    override fun onStart(parentContext: Context, span: ReadWriteSpan) {
+        val url = span.getAttribute(SemanticAttributes.URL_FULL) ?: return
+        span.setAttribute(SemanticAttributes.URL_FULL, sanitize(url))
+    }
 
-    fun sanitize(url: String): String = url
-        .substringBefore("?")           // Strip query params
-        .replace(UUID, "{id}")          // Replace UUIDs
-        .replace(NUMERIC_ID, "/{id}")   // Replace numeric IDs
+    private fun sanitize(url: String): String = url
+        .substringBefore("?")
+        .replace(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"), "{id}")
+        .replace(Regex("/[0-9]+(?=/|$)"), "/{id}")
+
+    override fun isStartRequired() = true
+    override fun onEnd(span: ReadableSpan) {}
+    override fun isEndRequired() = false
+    override fun shutdown() = CompletableResultCode.ofSuccess()
+    override fun forceFlush() = CompletableResultCode.ofSuccess()
 }
-```
 
-Configure via span processor or custom interceptor.
+// Add to your tracer provider
+SdkTracerProvider.builder()
+    .addSpanProcessor(UrlSanitizingSpanProcessor())
+    .addSpanProcessor(BatchSpanProcessor.builder(exporter).build())
+    .build()
+```
 
 ## Navigation Tracking
 
-Track screen views with Jetpack Navigation Compose:
+Track screen views as events (simpler) or spans (if you need time-on-screen).
+
+### Using Events (Recommended)
+
+```kotlin
+@Composable
+fun TrackNavigation(navController: NavHostController, logger: Logger) {
+    LaunchedEffect(navController) {
+        navController.currentBackStackEntryFlow.collect { entry ->
+            val route = entry.destination.route ?: return@collect
+            logger.logRecordBuilder()
+                .setSeverity(Severity.INFO)
+                .setBody("screen.view")
+                .setAllAttributes(Attributes.of(
+                    AttributeKey.stringKey("screen.name"), normalizeRoute(route)
+                ))
+                .emit()
+        }
+    }
+}
+
+private fun normalizeRoute(route: String): String = route
+    .replace(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"), "{id}")
+    .replace(Regex("(?<=/)\\d+(?=/|$)"), "{id}")
+```
+
+### Using Spans (For Time-on-Screen)
 
 ```kotlin
 @Composable
@@ -63,12 +99,6 @@ fun TrackNavigation(navController: NavHostController, tracer: Tracer) {
     DisposableEffect(Unit) {
         onDispose { currentSpan?.end() }
     }
-}
-
-private fun normalizeRoute(route: String): String {
-    val UUID = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-    val NUMERIC = Regex("(?<=/)\\d+(?=/|$)")
-    return route.replace(UUID, "{id}").replace(NUMERIC, "{id}")
 }
 ```
 
@@ -120,15 +150,20 @@ class FrameMetricsTracker(
     private val slowFrames = meter.counterBuilder("frames.slow").build()
     private val frozenFrames = meter.counterBuilder("frames.frozen").build()
     private var jankStats: JankStats? = null
+    private var currentActivity: Activity? = null
 
     private val listener = JankStats.OnFrameListener { frameData ->
         val durationMs = frameData.frameDurationUiNanos / 1_000_000
-        totalFrames.add(1)
-        if (durationMs > 16) slowFrames.add(1)
-        if (durationMs > 700) frozenFrames.add(1)
+        val screenName = currentActivity?.javaClass?.simpleName ?: "unknown"
+        val attrs = Attributes.of(AttributeKey.stringKey("screen.name"), screenName)
+
+        totalFrames.add(1, attrs)
+        if (durationMs > 16) slowFrames.add(1, attrs)
+        if (durationMs > 700) frozenFrames.add(1, attrs)
     }
 
     override fun onActivityResumed(activity: Activity) {
+        currentActivity = activity
         jankStats = JankStats.createAndTrack(activity.window, listener)
     }
 
@@ -137,7 +172,6 @@ class FrameMetricsTracker(
         jankStats = null
     }
 
-    // Empty implementations for other callbacks
     override fun onActivityCreated(activity: Activity, state: Bundle?) {}
     override fun onActivityStarted(activity: Activity) {}
     override fun onActivityStopped(activity: Activity) {}
@@ -149,7 +183,7 @@ class FrameMetricsTracker(
 registerActivityLifecycleCallbacks(FrameMetricsTracker(meter))
 ```
 
-Requires dependency:
+Requires:
 ```kotlin
 implementation("androidx.metrics:metrics-performance:1.0.0-beta01")
 ```
@@ -160,7 +194,7 @@ Measure cold start time (TTID - Time To Initial Display):
 
 ```kotlin
 class StartupTracker(
-    private val tracer: Tracer,
+    private val logger: Logger,
     private val processStartTime: Long = Process.getStartElapsedRealtime()
 ) : Application.ActivityLifecycleCallbacks {
 
@@ -169,15 +203,17 @@ class StartupTracker(
     override fun onActivityResumed(activity: Activity) {
         if (recorded.compareAndSet(false, true)) {
             val durationMs = SystemClock.elapsedRealtime() - processStartTime
-            tracer.spanBuilder("app.startup")
-                .setAttribute("startup.type", "cold")
-                .setAttribute("startup.duration_ms", durationMs)
-                .startSpan()
-                .end()
+            logger.logRecordBuilder()
+                .setSeverity(Severity.INFO)
+                .setBody("app.startup")
+                .setAllAttributes(Attributes.of(
+                    AttributeKey.stringKey("startup.type"), "cold",
+                    AttributeKey.longKey("startup.duration_ms"), durationMs
+                ))
+                .emit()
         }
     }
 
-    // Empty implementations for other callbacks
     override fun onActivityCreated(activity: Activity, state: Bundle?) {}
     override fun onActivityStarted(activity: Activity) {}
     override fun onActivityPaused(activity: Activity) {}
@@ -187,7 +223,7 @@ class StartupTracker(
 }
 
 // Register in Application.onCreate()
-registerActivityLifecycleCallbacks(StartupTracker(tracer))
+registerActivityLifecycleCallbacks(StartupTracker(logger))
 ```
 
-For TTFD (Time To Fully Drawn), call `Activity.reportFullyDrawn()` and record a span at that point.
+For TTFD (Time To Fully Drawn), emit another event when your main content is ready.
