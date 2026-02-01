@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.simplecityapps"
-version = "0.2.0"
+version = "0.3.0"
 
 android {
     namespace = "com.simplecityapps.apphealth.android"
@@ -22,6 +22,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags("")
+                arguments("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
             }
         }
     }
