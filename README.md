@@ -1,97 +1,212 @@
 # App Health Android SDK
 
-Automatic crash reporting and ANR detection for Android apps, built on OpenTelemetry.
+Crash reporting and ANR detection for Android apps, built on OpenTelemetry.
+
+## Why This SDK?
+
+An open-source alternative to proprietary crash reporting services. Built on OpenTelemetry, so crashes go to your collector in a standard format.
+
+- **JVM crash handling** - uncaught exceptions, stored to disk, reported on next launch
+- **Coroutine crash handling** - exceptions that bypass the default handler
+- **NDK crash handling** - native signals (SIGSEGV, SIGABRT, etc.) with backtraces
+- **ANR detection** - watchdog thread + historical API 30+ data
+
+## Installation
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("com.simplecityapps:app-health-android:0.2.0")
+}
+```
 
 ## Quick Start
 
 ```kotlin
-// In Application.onCreate()
-val openTelemetry = createOpenTelemetrySdk("https://collector.example.com", "my-app")
-AppHealth.init(context = this, openTelemetry = openTelemetry)
+class MyApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        val openTelemetry = createOpenTelemetrySdk()
+        AppHealth.init(context = this, openTelemetry = openTelemetry)
+    }
+}
 ```
 
 That's it. The SDK automatically captures crashes and ANRs.
 
-<details>
-<summary><b>Full SDK setup example</b></summary>
+## What Gets Captured
 
-```kotlin
-fun createOpenTelemetrySdk(endpoint: String, serviceName: String): OpenTelemetrySdk {
-    val resource = Resource.create(Attributes.of(
-        AttributeKey.stringKey("service.name"), serviceName
-    ))
+### JVM Crashes
 
-    return OpenTelemetrySdk.builder()
-        .setTracerProvider(SdkTracerProvider.builder()
-            .setResource(resource)
-            .addSpanProcessor(BatchSpanProcessor.builder(
-                OtlpHttpSpanExporter.builder()
-                    .setEndpoint("$endpoint/v1/traces")
-                    .build()
-            ).build())
-            .build())
-        .setLoggerProvider(SdkLoggerProvider.builder()
-            .setResource(resource)
-            .addLogRecordProcessor(BatchLogRecordProcessor.builder(
-                OtlpHttpLogRecordExporter.builder()
-                    .setEndpoint("$endpoint/v1/logs")
-                    .build()
-            ).build())
-            .build())
-        .build()
-}
+Uncaught exceptions on any thread. Stored to disk immediately (process is dying), reported on next launch.
+
 ```
-</details>
+Severity: ERROR
+Body: "JVM Crash: NullPointerException: Cannot invoke method on null"
 
-## What's Collected
+Attributes:
+  crash.type: "jvm"
+  exception.type: "java.lang.NullPointerException"
+  exception.message: "Cannot invoke method on null"
+  exception.stacktrace: "at com.example.MyClass.method(MyClass.kt:42)..."
+  thread.name: "main"
+```
 
-| Feature | Description |
-|---------|-------------|
-| **Crashes** | JVM exceptions, coroutine failures, native (NDK) crashes |
-| **ANRs** | Main thread blocked > 5 seconds |
+### Coroutine Crashes
+
+Uncaught exceptions in coroutines (via `CoroutineExceptionHandler` ServiceLoader). Same store-and-forward pattern.
+
+```
+Severity: ERROR
+Body: "Coroutine Crash: IllegalStateException: Invalid state"
+
+Attributes:
+  crash.type: "coroutine"
+  coroutine.name: "StandaloneCoroutine#1"
+  exception.type: "java.lang.IllegalStateException"
+  exception.stacktrace: "..."
+```
+
+### NDK Crashes
+
+Native signal handlers for SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL. Captures backtrace and fault address.
+
+```
+Severity: FATAL
+Body: "Native Crash: SIGSEGV"
+
+Attributes:
+  crash.type: "native"
+  signal: "SIGSEGV"
+  fault.address: "0x00000000"
+  backtrace: "#0 libapp.so!crash_function+0x10..."
+```
+
+### ANRs
+
+Detected two ways:
+1. **Watchdog thread** - pings main thread every second, reports if blocked >5s
+2. **Historical API** (Android 11+) - reads `ActivityManager.getHistoricalProcessExitReasons()` on launch
+
+```
+Severity: ERROR
+Body: "ANR Detected: Main thread blocked for 5000ms"
+
+Attributes:
+  anr.type: "watchdog"
+  anr.timeout_ms: 5000
+  anr.main_thread.stacktrace: "at android.os.MessageQueue.nativePollOnce..."
+```
 
 ## Configuration
 
-All features are **enabled by default**. Disable what you don't need:
+All features enabled by default. Disable what you don't need:
 
 ```kotlin
 AppHealth.init(context, openTelemetry) {
-    crashHandling = true          // JVM crash handler (default: true)
-    coroutineCrashHandling = true // Coroutine exceptions (default: true)
-    anrDetection = true           // ANR watchdog (default: true)
-    ndkCrashHandling = true       // Native crashes (default: true)
+    crashHandling = false         // JVM UncaughtExceptionHandler
+    coroutineCrashHandling = false // Coroutine exceptions
+    anrDetection = false          // ANR watchdog
+    ndkCrashHandling = false      // Native signal handlers
 }
 ```
 
-## Additional Telemetry
+## Setting Up OpenTelemetry for Android
 
-For network tracing, navigation tracking, lifecycle events, startup timing, and frame metrics, see [docs/RECIPES.md](docs/RECIPES.md) for implementation patterns using OpenTelemetry directly.
+OpenTelemetry on Android requires some mobile-specific configuration.
 
-## Custom Instrumentation
-
-For custom spans and logs, use the OpenTelemetry SDK you provided to AppHealth. See the [OpenTelemetry documentation](https://opentelemetry.io/docs/languages/java/).
-
-## Initialization Control
+### Basic Setup
 
 ```kotlin
-AppHealth.init(context, openTelemetry)
+fun createOpenTelemetrySdk(): OpenTelemetrySdk {
+    val resource = Resource.builder()
+        .put(ServiceAttributes.SERVICE_NAME, "my-app")
+        .put(ServiceAttributes.SERVICE_VERSION, BuildConfig.VERSION_NAME)
+        .put("device.model.name", Build.MODEL)
+        .put("device.manufacturer", Build.MANUFACTURER)
+        .put("os.name", "Android")
+        .put("os.version", Build.VERSION.SDK_INT.toString())
+        .build()
 
-// Check if init() was called
-if (AppHealth.isInitialized) { ... }
-
-// Check if async init completed
-if (AppHealth.isReady) { ... }
-
-// Block until ready (useful in tests)
-AppHealth.awaitReady(timeoutMs = 5000)
-
-// Force flush telemetry (useful in tests)
-AppHealth.forceFlush()
+    return OpenTelemetrySdk.builder()
+        .setResource(resource)
+        .setLoggerProvider(
+            SdkLoggerProvider.builder()
+                .setResource(resource)
+                .addLogRecordProcessor(
+                    BatchLogRecordProcessor.builder(
+                        OtlpHttpLogRecordExporter.builder()
+                            .setEndpoint("https://your-collector.example.com/v1/logs")
+                            .build()
+                    ).build()
+                )
+                .build()
+        )
+        .build()
+}
 ```
 
-## Privacy
+### Mobile Considerations
 
-The SDK collects only technical data required for crash reporting and performance monitoring. No personal data is collected. No device identifiers are generated or stored.
+**Use OTLP/HTTP, not gRPC** - simpler, fewer dependencies, works everywhere.
+
+**Batch exports** - The SDK uses `BatchLogRecordProcessor` by default with sensible settings. For custom tuning:
+
+```kotlin
+BatchLogRecordProcessor.builder(exporter)
+    .setMaxQueueSize(200)        // Buffer size
+    .setMaxExportBatchSize(50)   // Batch size per export
+    .setScheduleDelay(30, TimeUnit.SECONDS)  // Export interval
+    .build()
+```
+
+**Flush on background** - Data in memory is lost if the app is killed. Flush when backgrounded:
+
+```kotlin
+class MyApp : Application(), DefaultLifecycleObserver {
+    private lateinit var openTelemetry: OpenTelemetrySdk
+
+    override fun onCreate() {
+        super.onCreate()
+        openTelemetry = createOpenTelemetrySdk()
+        AppHealth.init(this, openTelemetry)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        // App going to background - flush telemetry
+        openTelemetry.sdkLoggerProvider.forceFlush()
+    }
+}
+```
+
+**Handle no network gracefully** - OTLP exporters retry automatically, but crashes stored by AppHealth are reported on next launch regardless of network state.
+
+## Additional Telemetry
+
+This SDK focuses on crashes and ANRs. For other telemetry:
+
+- **Network tracing**: Use [opentelemetry-okhttp-3.0](https://github.com/open-telemetry/opentelemetry-java-instrumentation)
+- **Startup timing, navigation, lifecycle, frame metrics**: See [docs/RECIPES.md](docs/RECIPES.md) for ~20 line implementations
+
+## API Reference
+
+```kotlin
+// Initialize (call once in Application.onCreate)
+AppHealth.init(context, openTelemetry) { /* config */ }
+
+// Check initialization state
+AppHealth.isInitialized  // init() was called
+AppHealth.isReady        // async init completed
+AppHealth.awaitReady(timeoutMs = 5000)  // block until ready
+
+// Force flush (useful in tests)
+AppHealth.forceFlush()
+
+// Trigger native crash (testing only)
+AppHealth.triggerNativeCrashForTesting()
+```
 
 ## Requirements
 
@@ -100,18 +215,4 @@ The SDK collects only technical data required for crash reporting and performanc
 
 ## License
 
-```
-Copyright 2026 Simple City Apps
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
+Apache 2.0 - see [LICENSE](LICENSE) for details.
