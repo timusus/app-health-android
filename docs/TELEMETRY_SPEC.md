@@ -2,9 +2,10 @@
 
 This document specifies all telemetry emitted by the App Health Android SDK, following [OpenTelemetry Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/) format.
 
-**SDK Version**: 1.0.0
+**SDK Version**: 0.2.0
 **Instrumentation Name**: `com.simplecityapps.apphealth.android`
 **Protocol**: OTLP/HTTP (JSON)
+**Semantic Conventions Version**: 1.39.0
 
 ---
 
@@ -199,7 +200,7 @@ All telemetry signals include these resource attributes:
 ```kotlin
 // Instrumentation
 const val INSTRUMENTATION_NAME = "com.simplecityapps.apphealth.android"
-const val INSTRUMENTATION_VERSION = "1.0.0"
+const val INSTRUMENTATION_VERSION = "0.2.0"
 
 // Export
 const val MAX_QUEUE_SIZE = 200
@@ -215,25 +216,39 @@ const val DEFAULT_ANR_CHECK_INTERVAL_MS = 1000L
 
 ## Appendix: Semantic Conventions Alignment
 
-This SDK follows OpenTelemetry semantic conventions:
+This SDK follows OpenTelemetry semantic conventions where available.
 
-| Convention | Status | Notes |
-|------------|--------|-------|
-| [Exception Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/) | Full | Uses `exception.type`, `exception.message`, `exception.stacktrace` |
-| [Thread Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/thread/) | Full | Uses `thread.name`, `thread.id` |
-| [Device Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/device/) | Full | Uses `device.model.name`, `device.manufacturer` |
-| [OS Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/os/) | Full | Uses `os.name`, `os.type`, `os.version` |
-| [Service Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/service/) | Full | Uses `service.name` |
-| [Telemetry SDK Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/telemetry/) | Full | Uses `telemetry.sdk.name`, `telemetry.sdk.version`, `telemetry.sdk.language` |
+### Standard Attributes (OTel Conventions)
 
-### SDK-Specific Attributes
+| Convention | Stability | Usage |
+|------------|-----------|-------|
+| [Exception Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/) | **Stable** | `exception.type`, `exception.message`, `exception.stacktrace` |
+| [Thread Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/thread/) | Development | `thread.name`, `thread.id` |
+| [Device Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/device/) | **Stable** | `device.model.name`, `device.manufacturer` |
+| [OS Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/os/) | **Stable** | `os.name`, `os.type`, `os.version` |
+| [Service Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/service/) | **Stable** | `service.name` |
+| [Telemetry SDK Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/telemetry/) | **Stable** | `telemetry.sdk.name`, `telemetry.sdk.version`, `telemetry.sdk.language` |
 
-The following attributes are SDK-specific extensions:
+### SDK-Specific Attributes (Extensions)
 
-| Attribute | Description |
-|-----------|-------------|
-| `app.version`, `app.version.code` | Application version info |
-| `crash.type` | Crash categorization (`jvm`, `coroutine`, `native`) |
-| `anr.type`, `anr.timeout_ms`, `anr.timestamp`, `anr.description`, `anr.pid` | ANR details |
-| `anr.main_thread.stacktrace`, `anr.other_threads.stacktraces` | ANR diagnostics |
-| `coroutine.name`, `coroutine.cancelled` | Coroutine crash context |
+The following attributes are SDK-specific extensions. OpenTelemetry does not yet have stable semantic conventions for mobile crashes or ANR events. These attributes follow patterns used by the OpenTelemetry Android project and mobile observability vendors.
+
+| Attribute | Purpose | Notes |
+|-----------|---------|-------|
+| `crash.type` | Crash categorization | Values: `jvm`, `coroutine`, `native` |
+| `anr.type` | ANR detection method | Values: `watchdog`, `historical` |
+| `anr.timeout_ms` | Watchdog threshold | Milliseconds |
+| `anr.timestamp` | Historical ANR time | Unix timestamp |
+| `anr.description` | System-provided reason | From `ApplicationExitInfo` |
+| `anr.pid` | Process ID at ANR | From `ApplicationExitInfo` |
+| `anr.main_thread.stacktrace` | Main thread state | Formatted stack trace |
+| `anr.other_threads.stacktraces` | Other threads state | Up to 10 threads |
+| `signal` | Native crash signal | e.g., `SIGSEGV`, `SIGABRT` |
+| `fault.address` | Memory fault location | Hex address |
+| `backtrace` | Native stack frames | Platform format |
+| `coroutine.name` | Coroutine identifier | From `CoroutineName` context |
+| `coroutine.cancelled` | Cancellation state | Boolean |
+| `app.version` | App version name | From `PackageInfo` |
+| `app.version.code` | App version code | From `PackageInfo` |
+
+> **Note**: When OpenTelemetry stabilizes mobile crash conventions, these attributes may be updated to align with the standard. Track progress at [opentelemetry-android](https://github.com/open-telemetry/opentelemetry-android).
