@@ -11,6 +11,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class NdkCrashReporterTest {
@@ -96,8 +97,9 @@ class NdkCrashReporterTest {
 
         val logs = telemetry.getLogRecords()
         val backtrace = logs[0].attributes.get(AttributeKey.stringKey("backtrace"))
-        assertTrue(backtrace?.contains("crash_function") == true)
-        assertTrue(backtrace?.contains("main") == true)
+        assertNotNull(backtrace)
+        assertTrue(backtrace.contains("crash_function"))
+        assertTrue(backtrace.contains("main"))
     }
 
     @Test

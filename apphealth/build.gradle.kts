@@ -63,15 +63,10 @@ dependencies {
     // AndroidX
     implementation("androidx.lifecycle:lifecycle-process:2.6.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-    implementation("androidx.metrics:metrics-performance:1.0.0-alpha04")
     implementation("androidx.core:core-ktx:1.12.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-
-    // Optional dependencies (compileOnly)
-    compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
-    compileOnly("androidx.navigation:navigation-compose:2.7.6")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
@@ -79,7 +74,6 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("io.opentelemetry:opentelemetry-sdk-testing:1.32.0")
-    testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
 // GPG signing key - accepts either ASCII-armored or base64-encoded format

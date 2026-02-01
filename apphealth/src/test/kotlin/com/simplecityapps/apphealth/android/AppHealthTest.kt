@@ -10,7 +10,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.*
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -133,48 +132,11 @@ class AppHealthTest {
             configCaptured = this
         }
 
-        assertNotNull(configCaptured)
-        assertFalse(configCaptured!!.crashHandling)
-        assertFalse(configCaptured!!.anrDetection)
-        assertFalse(configCaptured!!.ndkCrashHandling)
-        assertTrue(configCaptured!!.lifecycleTracking) // default true
-    }
-
-    @Test
-    fun `network sampling config is applied`() {
-        var configCaptured: AppHealthConfig? = null
-
-        AppHealth.init(
-            context = application,
-            openTelemetry = telemetry.openTelemetry
-        ) {
-            networkConfig {
-                sampleRate = 0.5
-                traceContextPropagation = false
-            }
-            configCaptured = this
-        }
-
-        assertNotNull(configCaptured)
-        assertEquals(0.5, configCaptured!!.networkConfig.sampleRate)
-        assertFalse(configCaptured!!.networkConfig.traceContextPropagation)
-    }
-
-    @Test
-    fun `custom url sanitizer is stored`() {
-        val customSanitizer: (String) -> String = { url -> url.replace("/v1/", "/v{n}/") }
-        var configCaptured: AppHealthConfig? = null
-
-        AppHealth.init(
-            context = application,
-            openTelemetry = telemetry.openTelemetry
-        ) {
-            urlSanitizer = customSanitizer
-            configCaptured = this
-        }
-
-        assertNotNull(configCaptured!!.urlSanitizer)
-        assertEquals("/api/v{n}/users", configCaptured!!.urlSanitizer!!("/api/v1/users"))
+        val config = configCaptured
+        assertNotNull(config)
+        assertFalse(config.crashHandling)
+        assertFalse(config.anrDetection)
+        assertFalse(config.ndkCrashHandling)
     }
 
     @Test

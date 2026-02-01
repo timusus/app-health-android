@@ -2,17 +2,14 @@ package com.simplecityapps.apphealth.android
 
 import android.app.Application
 import android.content.Context
-import androidx.navigation.NavController
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.logs.Logger
-import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
-import okhttp3.Interceptor
 import java.util.concurrent.TimeUnit
 
 /**
@@ -67,11 +64,7 @@ object AppHealth {
     @Volatile private var _openTelemetry: OpenTelemetry? = null
     @Volatile private var _tracer: Tracer? = null
     @Volatile private var _logger: Logger? = null
-    @Volatile private var _meter: Meter? = null
-    @Volatile private var startupTracer: StartupTracer? = null
-    @Volatile private var navigationTracker: NavigationTracker? = null
     @Volatile private var ndkCrashHandler: NdkCrashHandler? = null
-    @Volatile private var appHealthConfig: AppHealthConfig? = null
 
     private val appHealthDispatcher = newSingleThreadContext("apphealth")
     private val appHealthScope = CoroutineScope(SupervisorJob() + appHealthDispatcher)
@@ -113,24 +106,20 @@ object AppHealth {
         _readyLatch = latch
 
         val config = AppHealthConfig().apply(configure)
-        appHealthConfig = config
-
         val application = context.applicationContext as Application
 
         appHealthScope.launch {
             try {
                 _openTelemetry = openTelemetry
 
-                // Get tracer/logger/meter from app-provided OpenTelemetry
+                // Get tracer/logger from app-provided OpenTelemetry
                 val tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION)
                 val logger = openTelemetry.logsBridge.loggerBuilder(INSTRUMENTATION_NAME).build()
-                val meter = openTelemetry.getMeter(INSTRUMENTATION_NAME)
 
                 _tracer = tracer
                 _logger = logger
-                _meter = meter
 
-                initializeCollectors(application, tracer, logger, meter, openTelemetry, config)
+                initializeCollectors(application, tracer, logger, config)
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Failed to initialize AppHealth", e)
             } finally {
@@ -154,8 +143,6 @@ object AppHealth {
         application: Application,
         tracer: Tracer,
         logger: Logger,
-        meter: Meter,
-        openTelemetry: OpenTelemetry,
         userConfig: AppHealthConfig
     ) {
         // 1. Create crash storage and reporter
@@ -185,29 +172,7 @@ object AppHealth {
             AnrWatchdog.checkHistoricalAnrs(application, logger)
         }
 
-        // 6. Startup Tracer
-        if (userConfig.startupTracking) {
-            val newStartupTracer = StartupTracer(tracer)
-            startupTracer = newStartupTracer
-            application.registerActivityLifecycleCallbacks(newStartupTracer)
-        }
-
-        // 7. Lifecycle Tracker
-        if (userConfig.lifecycleTracking) {
-            LifecycleTracker.register(logger, openTelemetry)
-        }
-
-        // 8. Jank Tracker
-        if (userConfig.jankTracking) {
-            val jankTracker = JankTracker(meter, appHealthScope)
-            application.registerActivityLifecycleCallbacks(jankTracker)
-            jankTracker.start()
-        }
-
-        // 9. Navigation Tracker (always created, requires manual setup via trackNavigation)
-        navigationTracker = NavigationTracker(tracer)
-
-        // 10. NDK Crash Handler
+        // 6. NDK Crash Handler
         if (userConfig.ndkCrashHandling) {
             try {
                 val handler = NdkCrashHandler(application, logger)
@@ -217,61 +182,6 @@ object AppHealth {
                 android.util.Log.w(TAG, "Native library not available, NDK crash handling disabled", e)
             }
         }
-    }
-
-    /**
-     * Report that the app is fully drawn and interactive.
-     *
-     * Call this from your main activity once all critical content is visible.
-     * This completes the Time to Full Display (TTFD) measurement.
-     */
-    fun reportFullyDrawn() {
-        startupTracer?.reportFullyDrawn()
-    }
-
-    /**
-     * Track navigation events from a Jetpack Compose NavController.
-     *
-     * Call this from a LaunchedEffect in your NavHost composable:
-     * ```kotlin
-     * val navController = rememberNavController()
-     * LaunchedEffect(navController) {
-     *     AppHealth.trackNavigation(navController)
-     * }
-     * ```
-     *
-     * Routes are automatically normalized (IDs and UUIDs replaced with placeholders).
-     *
-     * @param navController The NavController to observe
-     */
-    suspend fun trackNavigation(navController: NavController) {
-        navigationTracker?.track(navController)
-    }
-
-    /**
-     * Get an OkHttp interceptor that traces HTTP requests.
-     *
-     * ```kotlin
-     * val client = OkHttpClient.Builder()
-     *     .addInterceptor(AppHealth.okHttpInterceptor())
-     *     .build()
-     * ```
-     *
-     * URLs are automatically sanitized (IDs, UUIDs, query params stripped).
-     * Configure a custom sanitizer via [AppHealthConfig.urlSanitizer].
-     *
-     * Trace context (W3C traceparent/tracestate headers) is automatically injected
-     * if propagators are configured on the OpenTelemetry SDK.
-     *
-     * @return An OkHttp [Interceptor] for network tracing
-     */
-    fun okHttpInterceptor(): Interceptor {
-        return NetworkInterceptor(
-            urlSanitizerProvider = { appHealthConfig?.urlSanitizer },
-            samplingConfigProvider = { appHealthConfig?.networkConfig },
-            textMapPropagatorProvider = { _openTelemetry?.propagators?.textMapPropagator },
-            tracerProvider = { _tracer }
-        )
     }
 
     /**
@@ -324,11 +234,7 @@ object AppHealth {
         _openTelemetry = null
         _tracer = null
         _logger = null
-        _meter = null
-        startupTracer = null
-        navigationTracker = null
         ndkCrashHandler = null
-        appHealthConfig = null
         _readyLatch = null
         initCalled = false
     }
