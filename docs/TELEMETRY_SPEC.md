@@ -11,18 +11,9 @@ This document specifies all telemetry emitted by the App Health Android SDK, fol
 ## Table of Contents
 
 - [Resource Attributes](#resource-attributes)
-- [Spans](#spans)
-  - [App Startup Spans](#app-startup-spans)
-  - [HTTP Client Spans](#http-client-spans)
-  - [Screen View Spans](#screen-view-spans)
-  - [Custom Spans](#custom-spans)
-- [Metrics](#metrics)
-  - [Frame Metrics](#frame-metrics)
 - [Log Records](#log-records)
   - [Crash Logs](#crash-logs)
   - [ANR Logs](#anr-logs)
-  - [Lifecycle Events](#lifecycle-events)
-  - [Custom Events](#custom-events)
 - [Export Configuration](#export-configuration)
 
 ---
@@ -67,157 +58,7 @@ All telemetry signals include these resource attributes:
 | `app.version` | string | Required | Application version name from PackageManager | `"1.0.0"` |
 | `app.version.code` | long | Required | Application version code from PackageManager | `42` |
 
-**Note**: Resource attributes are set by the app when configuring OpenTelemetry, not by AppHealth. AppHealth is pure instrumentation - it emits spans, logs, and metrics to the app-provided OpenTelemetry SDK.
-
----
-
-## Spans
-
-### App Startup Spans
-
-#### `app.startup` - Time to Initial Display (TTID)
-
-Measures cold start duration until first activity is displayed.
-
-**Span Kind**: `INTERNAL`
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `startup.type` | string | Required | Type of startup. Always `"cold"` for this span. | `"cold"` |
-| `startup.duration_ms` | long | Required | Duration from process start to first `onActivityResumed()` in milliseconds | `1250` |
-
-**Trigger**: First `onActivityResumed()` callback after process start.
-
----
-
-#### `app.startup.full` - Time to Full Display (TTFD)
-
-Measures cold start duration until app reports fully drawn.
-
-**Span Kind**: `INTERNAL`
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `startup.type` | string | Required | Type of startup. Always `"cold"` for this span. | `"cold"` |
-| `startup.duration_ms` | long | Required | Duration from process start to `reportFullyDrawn()` call in milliseconds | `2100` |
-| `startup.fully_drawn` | boolean | Required | Always `true` for this span | `true` |
-
-**Trigger**: Application calls `AppHealth.reportFullyDrawn()`.
-
----
-
-### HTTP Client Spans
-
-#### `HTTP {method}`
-
-Captures outbound HTTP requests via OkHttp interceptor.
-
-**Span Kind**: `CLIENT`
-
-**Span Name Format**: `"HTTP {method}"` where `{method}` is the HTTP method (GET, POST, PUT, DELETE, etc.)
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `http.request.method` | string | Required | HTTP request method | `"GET"` |
-| `url.full` | string | Required | Sanitized request URL (IDs replaced with `{id}`, query params stripped) | `"https://api.example.com/users/{id}"` |
-| `server.address` | string | Required | Host name of the request target | `"api.example.com"` |
-| `server.port` | long | Required | Port number of the request target | `443` |
-| `http.response.status_code` | long | Conditionally Required | HTTP response status code. Required if response received. | `200` |
-| `http.request.body.size` | long | Recommended | Request body size in bytes. Only set if > 0. | `256` |
-| `http.response.body.size` | long | Recommended | Response body size in bytes. Only set if > 0. | `1024` |
-
-**Span Status**:
-- `ERROR` if `http.response.status_code` >= 400, with message `"HTTP {status_code}"`
-- `ERROR` with exception recorded if `IOException` occurs
-- `OK` otherwise
-
-**Exception Recording**: On `IOException`, the span calls `recordException(e)` which adds:
-- `exception.type`: Exception class name
-- `exception.message`: Exception message
-- `exception.stacktrace`: Full stack trace
-
-**Trace Context Propagation**:
-
-When enabled (default), the interceptor injects W3C Trace Context headers into outgoing requests:
-- `traceparent`: Contains trace ID, span ID, and trace flags (format: `00-{trace_id}-{span_id}-{flags}`)
-- `tracestate`: Vendor-specific trace information (if configured)
-
-This enables distributed tracing by connecting Android client spans to backend service spans. Requires propagators to be configured on the OpenTelemetry SDK (e.g., `W3CTraceContextPropagator`).
-
-Disable via `networkConfig { traceContextPropagation = false }`.
-
-**URL Sanitization Rules**:
-1. UUIDs are replaced with `{id}`
-2. Numeric path segments are replaced with `{id}`
-3. Query parameters are stripped entirely
-4. Custom sanitization available via `urlSanitizer` parameter in `AppHealth.init()`
-
----
-
-### Screen View Spans
-
-#### `screen.view`
-
-Tracks navigation between screens in Jetpack Compose Navigation.
-
-**Span Kind**: `INTERNAL`
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `screen.name` | string | Required | Normalized route name (parameters replaced with `{id}`) | `"profile/{id}"` |
-
-**Trigger**: Navigation change detected via `NavController.currentBackStackEntryFlow`.
-
-**Route Normalization Rules**:
-1. UUIDs in routes are replaced with `{id}`
-2. Numeric segments in routes are replaced with `{id}`
-3. Already parameterized routes (e.g., `{userId}`) are preserved as-is
-
----
-
-## Metrics
-
-### Frame Metrics
-
-Reported every 30 seconds per activity.
-
-#### `frames.total`
-
-**Instrument Type**: Counter
-**Unit**: `{frame}`
-**Description**: Total frames rendered
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `screen.name` | string | Required | Current activity class simple name | `"MainActivity"` |
-
----
-
-#### `frames.slow`
-
-**Instrument Type**: Counter
-**Unit**: `{frame}`
-**Description**: Frames exceeding 16ms render time (missed vsync)
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `screen.name` | string | Required | Current activity class simple name | `"MainActivity"` |
-
-**Threshold**: > 16ms frame duration
-
----
-
-#### `frames.frozen`
-
-**Instrument Type**: Counter
-**Unit**: `{frame}`
-**Description**: Frames exceeding 700ms render time (UI freeze)
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `screen.name` | string | Required | Current activity class simple name | `"MainActivity"` |
-
-**Threshold**: > 700ms frame duration
+**Note**: Resource attributes are set by the app when configuring OpenTelemetry, not by AppHealth. AppHealth is pure instrumentation - it emits logs to the app-provided OpenTelemetry SDK.
 
 ---
 
@@ -326,37 +167,6 @@ Reported every 30 seconds per activity.
 
 ---
 
-### Lifecycle Events
-
-#### App Foreground
-
-**Severity**: `INFO`
-
-**Body**: `"app.foreground"`
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `event.name` | string | Required | Always `"app.foreground"` | `"app.foreground"` |
-
-**Trigger**: `ProcessLifecycleOwner` transitions to `ON_START`.
-
----
-
-#### App Background
-
-**Severity**: `INFO`
-
-**Body**: `"app.background"`
-
-| Attribute | Type | Requirement Level | Description | Example |
-|-----------|------|-------------------|-------------|---------|
-| `event.name` | string | Required | Always `"app.background"` | `"app.background"` |
-| `app.foreground.duration_ms` | long | Required | Time spent in foreground in milliseconds | `120000` |
-
-**Trigger**: `ProcessLifecycleOwner` transitions to `ON_STOP`.
-
----
-
 ## Export Configuration
 
 ### Endpoints
@@ -399,11 +209,6 @@ const val EXPORT_INTERVAL_SECONDS = 30L
 // ANR Detection
 const val DEFAULT_ANR_TIMEOUT_MS = 5000L
 const val DEFAULT_ANR_CHECK_INTERVAL_MS = 1000L
-
-// Frame Metrics
-const val FRAME_REPORT_INTERVAL_MS = 30_000L
-const val SLOW_FRAME_THRESHOLD_MS = 16
-const val FROZEN_FRAME_THRESHOLD_MS = 700
 ```
 
 ---
@@ -414,7 +219,6 @@ This SDK follows OpenTelemetry semantic conventions:
 
 | Convention | Status | Notes |
 |------------|--------|-------|
-| [HTTP Client Spans](https://opentelemetry.io/docs/specs/semconv/http/http-spans/) | Full | Uses `http.request.method`, `http.response.status_code`, `url.full`, `server.address`, `server.port` |
 | [Exception Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/) | Full | Uses `exception.type`, `exception.message`, `exception.stacktrace` |
 | [Thread Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/thread/) | Full | Uses `thread.name`, `thread.id` |
 | [Device Attributes](https://opentelemetry.io/docs/specs/semconv/attributes-registry/device/) | Full | Uses `device.model.name`, `device.manufacturer` |
@@ -430,10 +234,6 @@ The following attributes are SDK-specific extensions:
 |-----------|-------------|
 | `app.version`, `app.version.code` | Application version info |
 | `crash.type` | Crash categorization (`jvm`, `coroutine`, `native`) |
-| `startup.type`, `startup.duration_ms`, `startup.fully_drawn` | Startup metrics |
 | `anr.type`, `anr.timeout_ms`, `anr.timestamp`, `anr.description`, `anr.pid` | ANR details |
 | `anr.main_thread.stacktrace`, `anr.other_threads.stacktraces` | ANR diagnostics |
 | `coroutine.name`, `coroutine.cancelled` | Coroutine crash context |
-| `screen.name` | Navigation/jank tracking |
-| `app.foreground.duration_ms` | Foreground duration in milliseconds |
-| `event.name` | Lifecycle event identifier |
