@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "app-health-android"
 include(":apphealth")
-include(":sample")
